@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포트폴리오 분석 대시보드</title>
+    <style>
+        :root {
+            --color-white: rgba(255, 255, 255, 1);
+            --color-cream-50: rgba(252, 252, 249, 1);
+            --color-cream-100: rgba(255, 255, 253, 1);
+            --color-gray-300: rgba(167, 169, 169, 1);
+            --color-gray-400: rgba(119, 124, 124, 1);
+            --color-slate-500: rgba(98, 108, 113, 1);
+            --color-slate-900: rgba(19, 52, 59, 1);
+            --color-teal-500: rgba(33, 128, 141, 1);
+            --color-teal-600: rgba(29, 116, 128, 1);
+            --color-red-500: rgba(192, 21, 47, 1);
+            --color-green-500: rgba(34, 197, 94, 1);
+            --color-orange-500: rgba(168, 75, 47, 1);
+            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-20: 20px;
+            --space-24: 24px;
+            --radius-base: 8px;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: var(--font-family-base);
+            color: var(--color-slate-900);
+            background-color: var(--color-cream-50);
+        }
+
+        body {
+            padding: var(--space-16);
+            background: linear-gradient(135deg, var(--color-cream-50) 0%, var(--color-cream-100) 100%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: var(--space-24);
+            padding-bottom: var(--space-20);
+            border-bottom: 2px solid rgba(33, 128, 141, 0.2);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: var(--space-12);
+            color: var(--color-slate-900);
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            color: var(--color-slate-500);
+        }
+
+        .portfolio-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-16);
+            margin-bottom: var(--space-24);
+        }
+
+        .summary-card {
+            background: var(--color-white);
+            padding: var(--space-16);
+            border-radius: var(--radius-base);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(33, 128, 141, 0.1);
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: var(--color-slate-500);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: var(--space-8);
+        }
+
+        .summary-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--color-slate-900);
+            margin-bottom: var(--space-4);
+        }
+
+        .summary-change {
+            font-size: 12px;
+            padding: var(--space-4) var(--space-8);
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .positive {
+            color: var(--color-green-500);
+            background-color: rgba(34, 197, 94, 0.1);
+        }
+
+        .negative {
+            color: var(--color-red-500);
+            background-color: rgba(192, 21, 47, 0.1);
+        }
+
+        .holdings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--space-16);
+            margin-bottom: var(--space-24);
+        }
+
+        .holding-card {
+            background: var(--color-white);
+            padding: var(--space-20);
+            border-radius: var(--radius-base);
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--color-teal-500);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .holding-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .holding-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: var(--space-12);
+            color: var(--color-slate-900);
+        }
+
+        .holding-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-12);
+            margin-bottom: var(--space-16);
+            font-size: 13px;
+        }
+
+        .info-item {
+            background: var(--color-cream-50);
+            padding: var(--space-12);
+            border-radius: 4px;
+        }
+
+        .info-label {
+            color: var(--color-slate-500);
+            font-weight: 600;
+            margin-bottom: var(--space-4);
+        }
+
+        .info-value {
+            color: var(--color-slate-900);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .analysis-section {
+            background: var(--color-white);
+            padding: var(--space-20);
+            border-radius: var(--radius-base);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--space-20);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: var(--space-16);
+            color: var(--color-slate-900);
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+        }
+
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 16px;
+            background-color: var(--color-teal-500);
+            border-radius: 2px;
+        }
+
+        .recommendation {
+            background: rgba(33, 128, 141, 0.05);
+            padding: var(--space-16);
+            border-radius: 6px;
+            margin-bottom: var(--space-12);
+            border-left: 3px solid var(--color-teal-500);
+        }
+
+        .recommendation-title {
+            font-weight: 600;
+            color: var(--color-slate-900);
+            margin-bottom: var(--space-8);
+            font-size: 14px;
+        }
+
+        .recommendation-content {
+            font-size: 13px;
+            color: var(--color-slate-500);
+            line-height: 1.6;
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--space-12);
+            margin-bottom: var(--space-16);
+            border-bottom: 2px solid rgba(33, 128, 141, 0.1);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: var(--space-12) var(--space-16);
+            border: none;
+            background: none;
+            color: var(--color-slate-500);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: var(--color-teal-500);
+            border-bottom-color: var(--color-teal-500);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin: var(--space-16) 0;
+            background: rgba(33, 128, 141, 0.03);
+            border-radius: 6px;
+            padding: var(--space-16);
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+        }
+
+        .bar {
+            width: 60px;
+            background: linear-gradient(to top, var(--color-teal-500), var(--color-teal-600));
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .bar:hover {
+            opacity: 0.8;
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            color: var(--color-slate-500);
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-slate-900);
+        }
+
+        .analyst-summary {
+            background: rgba(168, 75, 47, 0.05);
+            padding: var(--space-16);
+            border-radius: 6px;
+            margin-bottom: var(--space-12);
+            border-left: 3px solid var(--color-orange-500);
+        }
+
+        .analyst-title {
+            font-weight: 600;
+            color: var(--color-orange-500);
+            margin-bottom: var(--space-8);
+            font-size: 13px;
+        }
+
+        .analyst-content {
+            font-size: 12px;
+            color: var(--color-slate-500);
+            line-height: 1.6;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: var(--space-12);
+            margin-top: var(--space-16);
+        }
+
+        button {
+            padding: var(--space-12) var(--space-16);
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--color-teal-500);
+            color: var(--color-white);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-teal-600);
+        }
+
+        .btn-secondary {
+            background-color: rgba(33, 128, 141, 0.1);
+            color: var(--color-teal-500);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(33, 128, 141, 0.2);
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: var(--space-24);
+        }
+
+        .timeline-item {
+            margin-bottom: var(--space-16);
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -25px;
+            top: 4px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--color-teal-500);
+            border: 2px solid var(--color-white);
+            box-shadow: 0 0 0 2px var(--color-teal-500);
+        }
+
+        .timeline-date {
+            font-weight: 600;
+            color: var(--color-teal-500);
+            font-size: 13px;
+        }
+
+        .timeline-desc {
+            color: var(--color-slate-500);
+            font-size: 12px;
+            margin-top: var(--space-4);
+        }
+
+        .risk-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-12);
+            padding: var(--space-12);
+            background: rgba(192, 21, 47, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid var(--color-red-500);
+            font-size: 12px;
+            color: var(--color-slate-500);
+            margin-bottom: var(--space-12);
+        }
+
+        .risk-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--color-red-500);
+        }
+
+        .footer {
+            margin-top: var(--space-24);
+            padding-top: var(--space-16);
+            border-top: 1px solid rgba(33, 128, 141, 0.1);
+            font-size: 12px;
+            color: var(--color-slate-500);
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .portfolio-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .holdings {
+                grid-template-columns: 1fr;
+            }
+
+            .holding-info {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                flex-wrap: wrap;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="header">
+            <h1>📊 포트폴리오 분석 대시보드</h1>
+            <p class="header-subtitle">2026년 1월 18일 기준 | 실시간 시장 데이터 기반 분석</p>
+        </div>
+
+        <!-- 포트폴리오 요약 -->
+        <div class="portfolio-summary">
+            <div class="summary-card">
+                <div class="summary-label">총 투자액</div>
+                <div class="summary-value">8,270,600원</div>
+                <div class="summary-change negative">초기 투자 자본</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">현재 평가액</div>
+                <div class="summary-value">17,732,600원</div>
+                <div class="summary-change positive">+9,462,000원</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">수익률</div>
+                <div class="summary-value" style="color: var(--color-green-500);">+114%</div>
+                <div class="summary-change positive">매우 우수한 성과</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">포트폴리오 구성</div>
+                <div class="summary-value">2개 종목</div>
+                <div class="summary-change">삼성전자 | 레버리지</div>
+            </div>
+        </div>
+
+        <!-- 보유 종목 상세 -->
+        <div class="holdings">
+            <!-- 삼성전자 -->
+            <div class="holding-card">
+                <div class="holding-title">🔷 삼성전자 (005930)</div>
+                <div class="holding-info">
+                    <div class="info-item">
+                        <div class="info-label">현재가</div>
+                        <div class="info-value">148,900원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">매수가</div>
+                        <div class="info-value">80,920원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">평가액</div>
+                        <div class="info-value">7,445,000원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">매수 수량</div>
+                        <div class="info-value">50주</div>
+                    </div>
+                </div>
+                <div class="info-item" style="grid-column: 1/-1;">
+                    <div class="info-label">수익 현황</div>
+                    <div class="info-value positive" style="color: var(--color-green-500);">+3,399,000원 (+84%)</div>
+                </div>
+            </div>
+
+            <!-- Kodex 레버리지 -->
+            <div class="holding-card">
+                <div class="holding-title">⬆️ Kodex 레버리지 (122630)</div>
+                <div class="holding-info">
+                    <div class="info-item">
+                        <div class="info-label">현재가</div>
+                        <div class="info-value">64,310원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">매수가</div>
+                        <div class="info-value">26,634원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">평가액</div>
+                        <div class="info-value">10,289,600원</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">매수 수량</div>
+                        <div class="info-value">160주</div>
+                    </div>
+                </div>
+                <div class="info-item" style="grid-column: 1/-1;">
+                    <div class="info-label">수익 현황</div>
+                    <div class="info-value positive" style="color: var(--color-green-500);">+6,063,000원 (+141%)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 분석 탭 -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'sell-timing')">📍 매도 타이밍</button>
+            <button class="tab-btn" onclick="switchTab(event, 'buy-timing')">🔄 추가 매수</button>
+            <button class="tab-btn" onclick="switchTab(event, 'stop-loss')">🎯 익절/손절</button>
+            <button class="tab-btn" onclick="switchTab(event, 'strategy')">📈 매매 전략</button>
+            <button class="tab-btn" onclick="switchTab(event, 'holding')">⏰ 보유 기간</button>
+            <button class="tab-btn" onclick="switchTab(event, 'analyst')">👨‍💼 애널리스트</button>
+        </div>
+
+        <!-- 매도 타이밍 -->
+        <div id="sell-timing" class="tab-content active">
+            <div class="analysis-section">
+                <div class="section-title">매도 타이밍 추천</div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">삼성전자 - 1차 익절 (부분 매도)</div>
+                    <div class="recommendation-content">
+                        <strong>매도 목표가:</strong> 165,000원 (현재가 대비 +10.8%)<br>
+                        <strong>매도 수량:</strong> 25주 (절반)<br>
+                        <strong>예상 수익:</strong> 2,104,500원<br>
+                        <strong>근거:</strong> 분기 실적 호재 + 반도체 사이클 상승장에서 안정적 수익 실현 타이밍<br>
+                        <strong>시점:</strong> 즉시 ~ 2주 내 (상승 모멘텀이 강한 상황)
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">삼성전자 - 2차 익절 (최종 매도)</div>
+                    <div class="recommendation-content">
+                        <strong>매도 목표가:</strong> 180,000원 이상 (현재가 대비 +20.8%)<br>
+                        <strong>매도 수량:</strong> 25주 (나머지)<br>
+                        <strong>근거:</strong> 애널리스트 목표가 상단(9만원대) 도달 시 + 반도체 사이클 고점 신호<br>
+                        <strong>시점:</strong> 3~6개월 내 (상반기 실적 개선 및 하반기 실적 전망 반영)<br>
+                        <strong>주의:</strong> 하반기 실적 깜깜이 리스크 고려
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">Kodex 레버리지 - 단계적 익절</div>
+                    <div class="recommendation-content">
+                        <strong>매도 전략:</strong> 3단계 수익 실현<br>
+                        <strong>1단계:</strong> 70,000원 도달 시 60주 매도<br>
+                        <strong>2단계:</strong> 80,000원 도달 시 60주 매도<br>
+                        <strong>3단계:</strong> 90,000원 이상 시 40주 매도<br>
+                        <strong>근거:</strong> 레버리지 상품의 높은 변동성 + 시간 경과에 따른 가치 감소(decay) 위험<br>
+                        <strong>주의:</strong> 레버리지 ETF는 장기 보유 적합하지 않음. 수익 나면 빨리 실현하기
+                    </div>
+                </div>
+
+                <div class="risk-indicator">
+                    <div class="risk-dot"></div>
+                    현재 포트폴리오는 매우 우수한 성과 중(+114%). 부분 익절로 리스크 관리 권장
+                </div>
+            </div>
+        </div>
+
+        <!-- 추가 매수 -->
+        <div id="buy-timing" class="tab-content">
+            <div class="analysis-section">
+                <div class="section-title">추가 매수 전략</div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">삼성전자 - 분할 매수 기회</div>
+                    <div class="recommendation-content">
+                        <strong>1차 매수:</strong> 140,000원 이하 시 10~15주<br>
+                        <strong>2차 매수:</strong> 130,000원 이하 시 15~20주<br>
+                        <strong>근거:</strong> 반도체 사이클은 아직 초기 단계. 조정 시 평가 손상 기회<br>
+                        <strong>투자액:</strong> 회당 200만원 내 권장<br>
+                        <strong>시점:</strong> 시장 조정 국면에서만 (지금은 추가 매수 보류 권장)
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">Kodex 레버리지 - 추가 매수 보류</div>
+                    <div class="recommendation-content">
+                        <strong>이유:</strong><br>
+                        1. 이미 고수익 상태(+141%) → 리스크/수익 비율 악화<br>
+                        2. 레버리지 상품 특성상 고점에서의 추가 매수는 위험<br>
+                        3. Time decay로 인한 장기 보유 손실 위험<br>
+                        <strong>대신:</strong> 수익 실현 후 현금 확보 추천<br>
+                        <strong>활용:</strong> 보유 현금으로 삼성전자 조정 시 추가 매수
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">포트폴리오 리밸런싱</div>
+                    <div class="recommendation-content">
+                        <strong>현재 구성:</strong> 삼성전자 42% / 레버리지 58%<br>
+                        <strong>목표 구성:</strong> 삼성전자 60% / 레버리지 40%<br>
+                        <strong>실행 방법:</strong> 레버리지 20주 매도 후 삼성전자 추가 매수<br>
+                        <strong>장점:</strong> 고변동성 자산 비중 감소 + 안정성 향상
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 익절/손절 -->
+        <div id="stop-loss" class="tab-content">
+            <div class="analysis-section">
+                <div class="section-title">익절 & 손절 타이밍</div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">삼성전자 - 손절 기준가</div>
+                    <div class="recommendation-content">
+                        <strong>손절 주문:</strong> 100,000원<br>
+                        <strong>손실폭:</strong> -32.8%<br>
+                        <strong>근거:</strong> 반도체 사이클 저점 돌파 신호 / PBR 0.8배 이하로 추락<br>
+                        <strong>주의:</strong> 현재 시점 손절 필요 없음. 예방적 설정용<br>
+                        <strong>재진입 조건:</strong> 손절 후 3개월 뒤 추세 확인 후
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">익절 우선순위</div>
+                    <div class="recommendation-content">
+                        <strong>1순위:</strong> Kodex 레버리지 전량 매도 (70,000원 이상)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;→ 레버리지 상품은 수익 나면 즉시 실현<br><br>
+                        <strong>2순위:</strong> 삼성전자 50% (165,000원 이상)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;→ 초기 투자액의 2배 이상 수익 후<br><br>
+                        <strong>3순위:</strong> 삼성전자 나머지 (180,000원 이상)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;→ 애널리스트 목표가 상향 시 추가 상승 기대
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">트레일링 스톱 (Trailing Stop) 추천</div>
+                    <div class="recommendation-content">
+                        <strong>설정값:</strong> 최고가 대비 -10%<br>
+                        <strong>효과:</strong> 고점 이후 하락할 때 자동 매도<br>
+                        <strong>예시:</strong><br>
+                        • 삼성전자가 160,000원 도달 → 144,000원에서 매도<br>
+                        • 레버리지가 75,000원 도달 → 67,500원에서 매도<br>
+                        <strong>장점:</strong> 감정 개입 제거 + 최고 수익 보호
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 매매 전략 -->
+        <div id="strategy" class="tab-content">
+            <div class="analysis-section">
+                <div class="section-title">종합 매매 전략</div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">📊 3단계 수익 실현 전략</div>
+                    <div class="recommendation-content">
+                        <strong>Phase 1 (즉시 ~ 2주): 레버리지 ETF 익절</strong><br>
+                        • Kodex 레버리지 20주 매도 → 약 1,286,000원 수익 실현<br>
+                        • 현금 확보 → 추가 매수 또는 방어선 구축<br><br>
+                        <strong>Phase 2 (1개월 ~ 3개월): 삼성전자 부분 익절</strong><br>
+                        • 165,000원 도달 시 25주 매도 → 약 2,104,500원 수익<br>
+                        • 초기 투자액 전부 + 수익 일부 회수<br><br>
+                        <strong>Phase 3 (3개월 ~ 6개월): 최종 익절 또는 보유</strong><br>
+                        • 180,000원 이상 도달 시 나머지 25주 매도<br>
+                        • 또는 6개월 보유 후 추세 재판단
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">🎯 위험 관리 전략</div>
+                    <div class="recommendation-content">
+                        <strong>현재 상황 분석:</strong><br>
+                        • 매우 높은 수익률(+114%) → 이익 보호 중요<br>
+                        • 반도체 사이클 상승기 → 추가 상승 가능<br>
+                        • 시장 변동성 증가 → 손실 위험도 상존<br><br>
+                        <strong>권장 행동:</strong><br>
+                        1. 레버리지 상품부터 매도 시작<br>
+                        2. 안정적 매도가 달성되면 삼성전자 정리<br>
+                        3. 수익의 일부는 안전자산(채권/적금)으로<br>
+                        4. 손절 주문 사전 설정으로 하락 리스크 차단
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">📈 현물 장기 보유 관점</div>
+                    <div class="recommendation-content">
+                        <strong>장기 비전 (1년 이상):</strong><br>
+                        • 삼성전자: AI 칩 수요 증가 → 실적 우상향 기대<br>
+                        • 반도체 사이클 저점 통과 → 2026년 후반 상승 본격화 가능<br><br>
+                        <strong>보유 추천:</strong> 초기 투자액 회수 후 이익분만 보유<br>
+                        <strong>예시:</strong> 25주 매도 후 25주는 최소 1년 보유
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 보유 기간 -->
+        <div id="holding" class="tab-content">
+            <div class="analysis-section">
+                <div class="section-title">보유 기간 전망</div>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">즉시 ~ 2주 (1월 18일 ~ 2월 1일)</div>
+                        <div class="timeline-desc">
+                            <strong>Kodex 레버리지 부분 매도</strong><br>
+                            레버리지 상품의 높은 변동성 감소 + 수익 실현<br>
+                            추천 가격대: 70,000원 이상
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-date">1개월 ~ 3개월 (2월 ~ 4월)</div>
+                        <div class="timeline-desc">
+                            <strong>삼성전자 1차 익절 + 레버리지 전량 매도</strong><br>
+                            상반기 실적 개선 신호 포착 + 분석가 상향 조정<br>
+                            목표 가격: 삼성전자 165,000원, 레버리지 75,000원 이상
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-date">3개월 ~ 6개월 (4월 ~ 7월)</div>
+                        <div class="timeline-desc">
+                            <strong>삼성전자 2차 익절 또는 계속 보유</strong><br>
+                            상반기 실적 발표 + 하반기 전망 점검<br>
+                            분할 매도: 25주를 165,000원대에서 단계적으로 정리<br>
+                            또는 180,000원 이상 목표 시까지 보유
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-date">6개월 이상 (7월 이후)</div>
+                        <div class="timeline-desc">
+                            <strong>최종 보유 판단</strong><br>
+                            초기 투자액은 모두 회수한 상태<br>
+                            순수 이익분만 남겨 1년 이상 장기 보유<br>
+                            또는 목표가 180,000원 도달 시 매도
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--space-24);">
+                    <div class="recommendation">
+                        <div class="recommendation-title">보유 기간 결론</div>
+                        <div class="recommendation-content">
+                            <strong>추천 보유 기간:</strong> 3~6개월 (부분 매도) → 12개월 (일부 보유)<br>
+                            <strong>이유:</strong><br>
+                            1. 현재 수익률이 매우 높음 → 이익 보호 필요<br>
+                            2. 반도체 사이클 상승은 아직 초기 → 추가 상승 여력<br>
+                            3. 초기 자본 회수 후 이익분만 보유 = 최적 리스크 관리<br>
+                            4. 하반기 실적 깜깜이 리스크 존재 → 분할 매도 권장
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 애널리스트 분석 -->
+        <div id="analyst" class="tab-content">
+            <div class="analysis-section">
+                <div class="section-title">애널리스트 의견 & 리포트</div>
+
+                <div class="analyst-summary">
+                    <div class="analyst-title">KB증권 (김동원 리서치센터장) - 베스트 애널리스트</div>
+                    <div class="analyst-content">
+                        ✓ <strong>투자의견:</strong> 강한 매수 (Strong Buy)<br>
+                        ✓ <strong>목표가:</strong> 70,000원 (기존) → 상향 가능성<br>
+                        ✓ <strong>핵심 평가:</strong><br>
+                        • 상승 여력 30% 이상 vs 하락 리스크 10% 미만<br>
+                        • 하반기 실적 개선을 고려할 때 모든 악재 이미 반영<br>
+                        • PBR 0.9배(역사적 저점) = 가치 투자 기회<br>
+                        ✓ <strong>긍정 요인:</strong><br>
+                        • 중국 AI 스타트업 부상 → 저비용 AI칩 수요 증가<br>
+                        • 양자컴퓨터 개발 확대<br>
+                        • 테슬라와 23조원 계약<br>
+                        ✓ <strong>실적 전망:</strong> 상저하고(上低下高) - 상반기 낮음 → 하반기 높음
+                    </div>
+                </div>
+
+                <div class="analyst-summary">
+                    <div class="analyst-title">주요 애널리스트 합의 의견</div>
+                    <div class="analyst-content">
+                        ✓ <strong>목표가 범위:</strong> 80,000원 ~ 95,000원 (평균 8.5만원)<br>
+                        ✓ <strong>현재 평가:</strong> 상대적 저평가 상태<br>
+                        ✓ <strong>추천 시점:</strong> 조정 때 매수 기회<br>
+                        ✓ <strong>2026년 상반기 전망:</strong><br>
+                        • Q1: 실적 바닥 확인<br>
+                        • Q2 ~ Q3: 수급 개선 신호<br>
+                        • Q4: 하반기 실적 개선 본격화<br>
+                        ✓ <strong>주의:</strong> 미국 관세 이슈 + 중국 경기 약세
+                    </div>
+                </div>
+
+                <div class="analyst-summary">
+                    <div class="analyst-title">반도체 사이클 분석</div>
+                    <div class="analyst-content">
+                        ✓ <strong>현재 위치:</strong> 사이클 저점 통과 단계<br>
+                        ✓ <strong>앞으로의 시나리오:</strong><br>
+                        • 1~2월: 약세 지속 가능성<br>
+                        • 3~4월: 점진적 회복<br>
+                        • 5월 이후: 상승세 본격화<br>
+                        ✓ <strong>업황 개선 신호:</strong><br>
+                        • D램 가격 안정화<br>
+                        • 낸드 재고 정상화<br>
+                        • 데이터센터 수요 회복
+                    </div>
+                </div>
+
+                <div class="recommendation">
+                    <div class="recommendation-title">종합 평가 & 투자 결론</div>
+                    <div class="recommendation-content">
+                        <strong>투자 등급:</strong> ⭐⭐⭐⭐⭐ 5/5 (현물 기준)<br><br>
+                        <strong>평가:</strong><br>
+                        당신의 포트폴리오는 매우 우수한 타이밍에 구성되었습니다.<br>
+                        삼성전자는 현재 역사적 저점에서 점진적 회복 중이며,<br>
+                        반도체 사이클 상승이 본격화될 것으로 예상됩니다.<br><br>
+                        <strong>현재 추천:</strong><br>
+                        1. 100% 매도보다는 <u>부분 익절 + 장기 보유</u> 병행<br>
+                        2. 레버리지 상품은 빠른 수익 실현<br>
+                        3. 삼성전자는 초기 자본 회수 후 추가 상승 기대<br>
+                        4. 반도체 사이클 상승장의 혜택 누리기
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 푸터 -->
+        <div class="footer">
+            <p>💡 면책사항: 본 분석은 참고용이며 시장 상황에 따라 변동될 수 있습니다. 투자 결정 전 전문가 상담을 권고합니다.</p>
+            <p>📊 데이터 기준: 2026년 1월 18일 | 실시간 시장 시세 적용</p>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(event, tabName) {
+            // 모든 탭 숨기기
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // 모든 버튼 비활성화
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 선택한 탭 보이기
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // 초기 계산 함수
+        function initializeApp() {
+            console.log('포트폴리오 분석 대시보드 로드 완료');
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
