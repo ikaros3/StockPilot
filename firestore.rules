@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 인증된 사용자만 접근 가능
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 사용자 본인인지 확인
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // 문서의 userId 필드와 현재 사용자 비교
+    function isDocumentOwner() {
+      return request.auth.uid == resource.data.userId;
+    }
+    
+    // 새 문서의 userId 필드와 현재 사용자 비교
+    function isNewDocumentOwner() {
+      return request.auth.uid == request.resource.data.userId;
+    }
+    
+    // ============================================
+    // 사용자 컬렉션
+    // ============================================
+    match /users/{userId} {
+      // 본인 데이터만 읽기/쓰기 가능
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ============================================
+    // 포트폴리오 컬렉션
+    // ============================================
+    match /portfolios/{portfolioId} {
+      // 조회: 본인 포트폴리오만
+      allow read: if isAuthenticated() && isDocumentOwner();
+      
+      // 생성: 인증된 사용자, userId가 본인이어야 함
+      allow create: if isAuthenticated() && isNewDocumentOwner();
+      
+      // 수정/삭제: 본인 포트폴리오만
+      allow update, delete: if isAuthenticated() && isDocumentOwner();
+    }
+    
+    // ============================================
+    // 보유 종목 컬렉션
+    // ============================================
+    match /holdings/{holdingId} {
+      // 포트폴리오 소유자 확인을 위한 함수
+      function getPortfolio() {
+        return get(/databases/$(database)/documents/portfolios/$(resource.data.portfolioId));
+      }
+      
+      function getNewPortfolio() {
+        return get(/databases/$(database)/documents/portfolios/$(request.resource.data.portfolioId));
+      }
+      
+      // 조회: 해당 포트폴리오 소유자만
+      allow read: if isAuthenticated() && 
+        request.auth.uid == getPortfolio().data.userId;
+      
+      // 생성: 해당 포트폴리오 소유자만
+      allow create: if isAuthenticated() && 
+        request.auth.uid == getNewPortfolio().data.userId;
+      
+      // 수정/삭제: 해당 포트폴리오 소유자만
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == getPortfolio().data.userId;
+    }
+    
+    // ============================================
+    // 분석 리포트 컬렉션
+    // ============================================
+    match /analysisReports/{reportId} {
+      // 읽기 전용 (시스템에서 생성)
+      allow read: if isAuthenticated();
+      
+      // 쓰기는 서버 사이드에서만 (Admin SDK 사용)
+      allow write: if false;
+    }
+    
+    // ============================================
+    // 알림 컬렉션
+    // ============================================
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated() && isDocumentOwner();
+      allow create: if isAuthenticated() && isNewDocumentOwner();
+      allow update, delete: if isAuthenticated() && isDocumentOwner();
+    }
+  }
+}
