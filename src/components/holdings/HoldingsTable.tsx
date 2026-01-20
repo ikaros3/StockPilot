@@ -95,12 +95,12 @@ export function HoldingsTable({
                         <TableHead className="w-[180px]">종목명</TableHead>
                         <TableHead className="text-right">현재가</TableHead>
                         <TableHead className="text-right">등락</TableHead>
-                        <TableHead className="text-right">평가금액</TableHead>
                         <TableHead className="text-right">평가수익</TableHead>
                         <TableHead className="text-right">수익률</TableHead>
                         <TableHead className="text-right">보유수량</TableHead>
                         <TableHead className="text-right">평균단가</TableHead>
                         <TableHead className="text-right">매수금액</TableHead>
+                        <TableHead className="text-right">평가금액</TableHead>
                         <TableHead className="text-right">투자비중</TableHead>
                         <TableHead className="text-center w-[60px]">상세</TableHead>
                     </TableRow>
@@ -163,13 +163,7 @@ export function HoldingsTable({
                                     ) : "N/A"}
                                 </TableCell>
 
-                                {/* 평가금액 */}
-                                <TableCell className={cn(
-                                    "text-right font-medium",
-                                    holding.evaluationAmount === null && "text-muted-foreground italic"
-                                )}>
-                                    {holding.evaluationAmount !== null ? formatCurrency(holding.evaluationAmount) : "N/A"}
-                                </TableCell>
+
 
                                 {/* 평가수익 */}
                                 <TableCell className={cn(
@@ -204,6 +198,14 @@ export function HoldingsTable({
                                 {/* 매수금액 */}
                                 <TableCell className="text-right">
                                     {formatCurrency(investmentAmount)}
+                                </TableCell>
+
+                                {/* 평가금액 */}
+                                <TableCell className={cn(
+                                    "text-right font-medium",
+                                    holding.evaluationAmount === null && "text-muted-foreground italic"
+                                )}>
+                                    {holding.evaluationAmount !== null ? formatCurrency(holding.evaluationAmount) : "N/A"}
                                 </TableCell>
 
                                 {/* 투자비중 */}

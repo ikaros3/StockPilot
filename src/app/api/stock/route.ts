@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
                 {
                     FID_COND_MRKT_DIV_CODE: "J",
                     FID_INPUT_ISCD: stockCode,
-                    FID_INPUT_DATE_1: formatDate(new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)), // 30일 전
+                    // 120일 이평선 계산을 위해 넉넉하게 200일 전 데이터부터 조회 (휴장일 포함)
+                    FID_INPUT_DATE_1: formatDate(new Date(today.getTime() - 200 * 24 * 60 * 60 * 1000)),
                     FID_INPUT_DATE_2: formatDate(today),
                     FID_PERIOD_DIV_CODE: "D",
                     FID_ORG_ADJ_PRC: "0",
