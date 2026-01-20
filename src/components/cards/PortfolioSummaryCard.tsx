@@ -20,6 +20,8 @@ const gradeLabels: Record<PerformanceGrade, string> = {
     good: "우수",
     average: "보통",
     warning: "주의",
+    poor: "미흡",
+    critical: "위험",
 };
 
 const gradeColors: Record<PerformanceGrade, string> = {
@@ -27,6 +29,8 @@ const gradeColors: Record<PerformanceGrade, string> = {
     good: "bg-green-500 text-white",
     average: "bg-yellow-500 text-white",
     warning: "bg-orange-500 text-white",
+    poor: "bg-red-400 text-white",
+    critical: "bg-red-600 text-white",
 };
 
 function formatKRW(amount: number): string {

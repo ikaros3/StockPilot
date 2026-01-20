@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         {/* Pretendard 폰트 CDN */}
         <link
@@ -22,7 +22,7 @@ export default function RootLayout({
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
         />
       </head>
-      <body className="font-pretendard antialiased">
+      <body className="font-pretendard antialiased" suppressHydrationWarning>
         {children}
       </body>
     </html>

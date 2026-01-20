@@ -28,7 +28,7 @@ interface HeaderProps {
 }
 
 const navItems = [
-    { href: "/", label: "대시보드", icon: PieChart },
+    { href: "/", label: "투자현황", icon: PieChart },
     { href: "/reports", label: "리포트", icon: FileText },
     { href: "/settings", label: "설정", icon: Settings },
 ];

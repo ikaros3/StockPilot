@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     PieChart,
     FileText,
@@ -10,35 +11,85 @@ import {
     Plus,
     Briefcase,
     TrendingUp,
+    TrendingDown,
     Search,
-    X
+    X,
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { CreatePortfolioDialog } from "@/components/portfolio";
+import { createPortfolio, getUserPortfolios } from "@/services/portfolio";
+import type { Portfolio } from "@/types";
 
 interface SidebarProps {
     isOpen?: boolean;
     onClose?: () => void;
 }
 
+interface PortfolioWithStats extends Portfolio {
+    holdingCount?: number;
+    profitRate?: number;
+}
+
 const navItems = [
-    { href: "/", label: "대시보드", icon: PieChart },
+    { href: "/", label: "투자현황", icon: PieChart },
     { href: "/reports", label: "리포트", icon: FileText },
     { href: "/alerts", label: "알림 센터", icon: Bell },
     { href: "/settings", label: "설정", icon: Settings },
 ];
 
-// 임시 포트폴리오 데이터
-const portfolios = [
-    { id: "1", name: "메인 포트폴리오", holdingCount: 5, profitRate: 12.5 },
-    { id: "2", name: "성장주 포트폴리오", holdingCount: 3, profitRate: -2.3 },
-];
-
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
+    const [portfolios, setPortfolios] = useState<PortfolioWithStats[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // 포트폴리오 목록 로드
+    const loadPortfolios = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const data = await getUserPortfolios("demo_user");
+            // 임시로 holdingCount와 profitRate 추가
+            const portfoliosWithStats = data.map((p) => ({
+                ...p,
+                holdingCount: 0,
+                profitRate: 0,
+            }));
+            setPortfolios(portfoliosWithStats);
+        } catch (error) {
+            console.error("[Sidebar] 포트폴리오 로드 실패:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadPortfolios();
+    }, [loadPortfolios]);
+
+    // 포트폴리오 생성
+    const handleCreatePortfolio = async (name: string, description: string) => {
+        try {
+            const newPortfolio = await createPortfolio({
+                userId: "demo_user",
+                name,
+                description,
+            });
+
+            // 목록 새로고침
+            await loadPortfolios();
+
+            // 새 포트폴리오 페이지로 이동
+            router.push(`/portfolio/${newPortfolio.id}`);
+        } catch (error) {
+            console.error("[Sidebar] 포트폴리오 생성 실패:", error);
+            throw error;
+        }
+    };
 
     return (
         <>
@@ -112,38 +163,62 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                                     <Briefcase className="h-4 w-4" />
                                     포트폴리오
                                 </h4>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                    <Plus className="h-4 w-4" />
-                                </Button>
+                                <CreatePortfolioDialog
+                                    onSubmit={handleCreatePortfolio}
+                                    trigger={
+                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    }
+                                />
                             </div>
 
                             <div className="space-y-1">
-                                {portfolios.map((portfolio) => (
-                                    <Link
-                                        key={portfolio.id}
-                                        href={`/portfolio/${portfolio.id}`}
-                                        className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{portfolio.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                                {portfolio.holdingCount}개 종목
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <TrendingUp className={cn(
-                                                "h-3 w-3",
-                                                portfolio.profitRate >= 0 ? "text-profit" : "text-loss"
-                                            )} />
-                                            <span className={cn(
-                                                "text-xs font-medium",
-                                                portfolio.profitRate >= 0 ? "text-profit" : "text-loss"
-                                            )}>
-                                                {portfolio.profitRate >= 0 ? "+" : ""}{portfolio.profitRate}%
-                                            </span>
-                                        </div>
-                                    </Link>
-                                ))}
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center py-4">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : portfolios.length === 0 ? (
+                                    <div className="text-center py-4 text-sm text-muted-foreground">
+                                        포트폴리오가 없습니다.
+                                        <br />
+                                        + 버튼을 눌러 생성하세요.
+                                    </div>
+                                ) : (
+                                    portfolios.map((portfolio) => {
+                                        const profitRate = portfolio.profitRate ?? 0;
+                                        const isProfit = profitRate >= 0;
+                                        const TrendIcon = isProfit ? TrendingUp : TrendingDown;
+
+                                        return (
+                                            <Link
+                                                key={portfolio.id}
+                                                href={`/portfolio/${portfolio.id}`}
+                                                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                                                onClick={onClose}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{portfolio.name}</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {portfolio.holdingCount ?? 0}개 종목
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <TrendIcon className={cn(
+                                                        "h-3 w-3",
+                                                        isProfit ? "text-profit" : "text-loss"
+                                                    )} />
+                                                    <span className={cn(
+                                                        "text-xs font-medium",
+                                                        isProfit ? "text-profit" : "text-loss"
+                                                    )}>
+                                                        {isProfit ? "+" : ""}{profitRate.toFixed(1)}%
+                                                    </span>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
                     </ScrollArea>

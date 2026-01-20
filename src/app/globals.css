@@ -93,7 +93,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* 투자 관련 색상 (한국 시장 스타일) */
-  --profit: oklch(0.628 0.258 29.234);
+  --profit: #E53935;
   /* 수익 = 빨강 */
   --profit-foreground: oklch(1 0 0);
   --loss: oklch(0.488 0.243 264.376);
@@ -138,7 +138,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 
   /* 투자 관련 색상 (한국 시장 스타일 - 다크모드) */
-  --profit: oklch(0.704 0.191 22.216);
+  --profit: #E53935;
   /* 수익 = 빨강 */
   --profit-foreground: oklch(0.145 0 0);
   --loss: oklch(0.588 0.243 264.376);

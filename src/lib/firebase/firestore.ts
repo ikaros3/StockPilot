@@ -18,17 +18,61 @@ import {
     DocumentReference,
     CollectionReference,
 } from "firebase/firestore";
-import { db } from "./config";
+import { getFirestoreDb, canUseFirebase } from "./config";
 
 // ============================================
-// 컬렉션 참조
+// 컬렉션 참조 (지연 생성)
 // ============================================
 
-export const usersCollection = collection(db, "users");
-export const portfoliosCollection = collection(db, "portfolios");
-export const holdingsCollection = collection(db, "holdings");
-export const analysisReportsCollection = collection(db, "analysisReports");
-export const alertsCollection = collection(db, "alerts");
+/**
+ * 컬렉션 참조를 안전하게 가져옵니다.
+ * Firebase가 설정되지 않으면 오류를 발생시킵니다.
+ */
+function getCollectionRef(collectionName: string): CollectionReference {
+    const db = getFirestoreDb();
+    if (!db) {
+        throw new Error(
+            `[Firestore] Firebase가 설정되지 않았습니다. ${collectionName} 컬렉션에 접근할 수 없습니다.`
+        );
+    }
+    return collection(db, collectionName);
+}
+
+// 컬렉션 참조 getter
+export const portfoliosCollection = (() => {
+    if (!canUseFirebase) {
+        return null as unknown as CollectionReference;
+    }
+    return getCollectionRef("portfolios");
+})();
+
+export const holdingsCollection = (() => {
+    if (!canUseFirebase) {
+        return null as unknown as CollectionReference;
+    }
+    return getCollectionRef("holdings");
+})();
+
+export const usersCollection = (() => {
+    if (!canUseFirebase) {
+        return null as unknown as CollectionReference;
+    }
+    return getCollectionRef("users");
+})();
+
+export const analysisReportsCollection = (() => {
+    if (!canUseFirebase) {
+        return null as unknown as CollectionReference;
+    }
+    return getCollectionRef("analysisReports");
+})();
+
+export const alertsCollection = (() => {
+    if (!canUseFirebase) {
+        return null as unknown as CollectionReference;
+    }
+    return getCollectionRef("alerts");
+})();
 
 // ============================================
 // 제네릭 CRUD 헬퍼 함수
@@ -42,6 +86,10 @@ export async function createDocument<T extends DocumentData>(
     data: WithFieldValue<T>,
     customId?: string
 ): Promise<DocumentReference> {
+    if (!collectionRef) {
+        throw new Error("[Firestore] Firebase가 설정되지 않았습니다.");
+    }
+
     const docRef = customId
         ? doc(collectionRef, customId)
         : doc(collectionRef);
@@ -62,6 +110,11 @@ export async function getDocument<T>(
     collectionName: string,
     docId: string
 ): Promise<T | null> {
+    const db = getFirestoreDb();
+    if (!db) {
+        throw new Error("[Firestore] Firebase가 설정되지 않았습니다.");
+    }
+
     const docRef = doc(db, collectionName, docId);
     const docSnap = await getDoc(docRef);
 
@@ -79,6 +132,11 @@ export async function updateDocument<T extends DocumentData>(
     docId: string,
     data: Partial<T>
 ): Promise<void> {
+    const db = getFirestoreDb();
+    if (!db) {
+        throw new Error("[Firestore] Firebase가 설정되지 않았습니다.");
+    }
+
     const docRef = doc(db, collectionName, docId);
     await updateDoc(docRef, {
         ...data,
@@ -93,6 +151,11 @@ export async function deleteDocument(
     collectionName: string,
     docId: string
 ): Promise<void> {
+    const db = getFirestoreDb();
+    if (!db) {
+        throw new Error("[Firestore] Firebase가 설정되지 않았습니다.");
+    }
+
     const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
 }
@@ -104,6 +167,10 @@ export async function queryDocuments<T>(
     collectionRef: CollectionReference,
     ...constraints: QueryConstraint[]
 ): Promise<T[]> {
+    if (!collectionRef) {
+        throw new Error("[Firestore] Firebase가 설정되지 않았습니다.");
+    }
+
     const q = query(collectionRef, ...constraints);
     const querySnapshot = await getDocs(q);
 
@@ -121,6 +188,12 @@ export function subscribeToDocument<T>(
     docId: string,
     callback: (data: T | null) => void
 ): () => void {
+    const db = getFirestoreDb();
+    if (!db) {
+        console.warn("[Firestore] Firebase가 설정되지 않았습니다. 구독을 건너뜁니다.");
+        return () => { };
+    }
+
     const docRef = doc(db, collectionName, docId);
 
     return onSnapshot(docRef, (docSnap) => {
@@ -140,6 +213,11 @@ export function subscribeToQuery<T>(
     constraints: QueryConstraint[],
     callback: (data: T[]) => void
 ): () => void {
+    if (!collectionRef) {
+        console.warn("[Firestore] Firebase가 설정되지 않았습니다. 구독을 건너뜁니다.");
+        return () => { };
+    }
+
     const q = query(collectionRef, ...constraints);
 
     return onSnapshot(q, (querySnapshot) => {

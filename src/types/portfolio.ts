@@ -1,5 +1,3 @@
-import { Timestamp } from "firebase/firestore";
-
 /**
  * 포트폴리오
  */
@@ -8,8 +6,8 @@ export interface Portfolio {
     userId: string;
     name: string;
     description?: string;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 /**
@@ -27,7 +25,7 @@ export interface CreatePortfolioInput {
 export interface AdditionalPurchase {
     price: number;
     quantity: number;
-    date: Timestamp;
+    date: Date;
 }
 
 /**
@@ -40,10 +38,11 @@ export interface Holding {
     stockName: string;
     purchasePrice: number;     // 평균 매수가
     quantity: number;          // 총 보유 수량
-    purchaseDate: Timestamp;   // 최초 매수일
+    purchaseDate: Date;   // 최초 매수일
+    memo?: string;             // 메모 (매수 이유 등)
     additionalPurchases: AdditionalPurchase[];
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 /**
@@ -56,6 +55,7 @@ export interface CreateHoldingInput {
     purchasePrice: number;
     quantity: number;
     purchaseDate: Date;
+    memo?: string;
 }
 
 /**
@@ -66,7 +66,7 @@ export type PerformanceStatus = "bullish" | "neutral" | "bearish";
 /**
  * 포트폴리오 성과 등급
  */
-export type PerformanceGrade = "excellent" | "good" | "average" | "warning";
+export type PerformanceGrade = "excellent" | "good" | "average" | "warning" | "poor" | "critical";
 
 /**
  * 포트폴리오 요약

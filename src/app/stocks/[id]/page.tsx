@@ -4,6 +4,7 @@ import { use } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
@@ -18,17 +19,9 @@ import { TradingStrategyTab } from "@/components/analysis/TradingStrategyTab";
 import { HoldingPeriodTab } from "@/components/analysis/HoldingPeriodTab";
 import { AnalystTab } from "@/components/analysis/AnalystTab";
 
-// 임시 데이터
-const stockData = {
-    id: "1",
-    stockCode: "005930",
-    stockName: "삼성전자",
-    currentPrice: 78000,
-    purchasePrice: 65000,
-    quantity: 100,
-    profitRate: 20.0,
-    performanceStatus: "bullish" as const,
-};
+import { useStockData } from "@/hooks/useStockData";
+
+// import { SummaryTab } from "@/components/analysis/SummaryTab"; // 이미 있음
 
 interface StockDetailPageProps {
     params: Promise<{ id: string }>;
@@ -36,7 +29,45 @@ interface StockDetailPageProps {
 
 export default function StockDetailPage({ params }: StockDetailPageProps) {
     const { id } = use(params);
-    const isProfit = stockData.profitRate >= 0;
+
+    // 종목코드 매핑 (임시: 나중에 DB나 API에서 가져와야 함)
+    const stockCodeMap: Record<string, string> = {
+        "1": "005930", // 삼성전자
+        "2": "000660", // SK하이닉스
+        "3": "035720", // 카카오
+        "4": "005380", // 현대차
+    };
+    const stockCode = stockCodeMap[id] || id;
+
+    const { price, company, isLoading } = useStockData(stockCode);
+
+    // 가격 정보
+    const currentPrice = price?.currentPrice || 0;
+    const previousClose = (price?.currentPrice || 0) - (price?.changePrice || 0); // 전일종가 유추
+    const changePrice = price?.changePrice || 0;
+    const changeRate = price?.changeRate || 0;
+    const isProfit = changeRate >= 0;
+
+    // 로딩 중일 때
+    if (isLoading) {
+        return (
+            <DashboardLayout>
+                <div className="space-y-6">
+                    <div className="flex items-start justify-between">
+                        <Button variant="ghost" size="icon" asChild>
+                            <Link href="/">
+                                <ArrowLeft className="h-5 w-5" />
+                            </Link>
+                        </Button>
+                        <div className="space-y-2">
+                            <Skeleton className="h-8 w-48" />
+                            <Skeleton className="h-8 w-32" />
+                        </div>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -51,12 +82,12 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
                         </Button>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold">{stockData.stockName}</h1>
-                                <Badge variant="outline">{stockData.stockCode}</Badge>
+                                <h1 className="text-2xl font-bold">{company?.corpName || price?.stockName || "종목명 로딩 실패"}</h1>
+                                <Badge variant="outline">{stockCode}</Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="text-2xl font-bold">
-                                    ₩{stockData.currentPrice.toLocaleString()}
+                                    ₩{currentPrice.toLocaleString()}
                                 </span>
                                 <div className={cn(
                                     "flex items-center gap-1",
@@ -68,7 +99,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
                                         <TrendingDown className="h-4 w-4" />
                                     )}
                                     <span className="font-medium">
-                                        {isProfit ? "+" : ""}{stockData.profitRate}%
+                                        {isProfit ? "+" : ""}{changeRate.toFixed(2)}%
                                     </span>
                                 </div>
                             </div>
