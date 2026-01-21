@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/layout";
 import { PortfolioSummaryCard } from "@/components/cards";
-import { HoldingsTable, StockDetailPanel, type HoldingData } from "@/components/holdings";
+import { HoldingsTable, StockDetailPanel } from "@/components/holdings";
 import type { PerformanceGrade, PerformanceStatus, Holding, Portfolio } from "@/types";
 import { useEffect, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,9 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Briefcase } from "lucide-react";
-
-// 기본 사용자 ID (추후 인증 시스템과 연동)
-const DEFAULT_USER_ID = "demo_user";
+import { useAuth } from "@/providers/AuthProvider";
+import { useRouter } from "next/navigation";
 
 // localStorage 키
 const SELECTED_PORTFOLIO_KEY = "stockpilot_selected_portfolio";
@@ -71,12 +70,22 @@ interface PortfolioData {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { user, loading: isAuthLoading } = useAuth();
+
   const [data, setData] = useState<PortfolioData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("all");
   const [selectedStock, setSelectedStock] = useState<{ code: string; name: string; purchasePrice: number } | null>(null);
+
+  // Authentication check
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, isAuthLoading, router]);
 
   // localStorage에서 저장된 선택값 복원
   useEffect(() => {
@@ -95,6 +104,8 @@ export default function Home() {
   // 데이터 로드
   useEffect(() => {
     async function loadPortfolioData() {
+      if (!user) return;
+
       try {
         setLoading(true);
         setError(null);
@@ -109,7 +120,7 @@ export default function Home() {
         const storageType = getStorageType();
 
         // 포트폴리오 목록 조회
-        const portfolioList = await getUserPortfolios(DEFAULT_USER_ID);
+        const portfolioList = await getUserPortfolios(user.uid);
         setPortfolios(portfolioList);
 
         // 포트폴리오가 없으면 빈 상태 표시
@@ -259,11 +270,13 @@ export default function Home() {
       }
     }
 
-    loadPortfolioData();
-  }, [selectedPortfolio, handlePortfolioChange]);
+    if (!isAuthLoading && user) {
+      loadPortfolioData();
+    }
+  }, [selectedPortfolio, handlePortfolioChange, user, isAuthLoading]);
 
-  // 로딩 상태
-  if (loading) {
+  // 로딩 상태 (Auth or Data)
+  if (isAuthLoading || (loading && !data)) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -283,6 +296,11 @@ export default function Home() {
         </div>
       </DashboardLayout>
     );
+  }
+
+  // 로그인 안된 경우 (리다이렉트 되지만 깜빡임 방지용)
+  if (!user) {
+    return null;
   }
 
   // 오류 상태

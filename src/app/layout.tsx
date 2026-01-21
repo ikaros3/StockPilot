@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "StockPilot - 포트폴리오 분석",
@@ -23,7 +24,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-pretendard antialiased" suppressHydrationWarning>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

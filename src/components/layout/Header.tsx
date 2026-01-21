@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/providers/AuthProvider";
+import { signOut } from "@/lib/firebase/auth";
 import {
     PieChart,
     FileText,
@@ -35,6 +37,17 @@ const navItems = [
 
 export function Header({ onMenuClick }: HeaderProps) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { user } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            router.push("/login");
+        } catch (error) {
+            console.error("로그아웃 실패:", error);
+        }
+    };
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -91,42 +104,48 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </Button>
 
                     {/* 사용자 메뉴 */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src="" alt="사용자" />
-                                    <AvatarFallback>
-                                        <User className="h-4 w-4" />
-                                    </AvatarFallback>
-                                </Avatar>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56" align="end" forceMount>
-                            <DropdownMenuLabel className="font-normal">
-                                <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium leading-none">사용자</p>
-                                    <p className="text-xs leading-none text-muted-foreground">
-                                        user@example.com
-                                    </p>
-                                </div>
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                                <User className="mr-2 h-4 w-4" />
-                                <span>프로필</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Settings className="mr-2 h-4 w-4" />
-                                <span>설정</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
-                                <LogOut className="mr-2 h-4 w-4" />
-                                <span>로그아웃</span>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {user ? (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={user.photoURL || ""} alt={user.displayName || "사용자"} />
+                                        <AvatarFallback>
+                                            <User className="h-4 w-4" />
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="end" forceMount>
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium leading-none">{user.displayName || "사용자"}</p>
+                                        <p className="text-xs leading-none text-muted-foreground">
+                                            {user.email}
+                                        </p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>프로필</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>설정</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>로그아웃</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <Button asChild variant="default" size="sm">
+                            <Link href="/login">로그인</Link>
+                        </Button>
+                    )}
                 </div>
             </div>
         </header>

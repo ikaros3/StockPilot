@@ -7,6 +7,9 @@ import {
     onAuthStateChanged,
     User as FirebaseUser,
     updateProfile,
+    sendEmailVerification as firebaseSendEmailVerification,
+    getAdditionalUserInfo,
+    OAuthProvider,
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "./config";
 import { useState, useEffect } from "react";
@@ -24,15 +27,43 @@ const FIREBASE_NOT_CONFIGURED_ERROR = new Error(
 export async function signInWithGoogle() {
     const auth = getFirebaseAuth();
     if (!auth) {
-        return { user: null, error: FIREBASE_NOT_CONFIGURED_ERROR };
+        return { user: null, isNewUser: false, error: FIREBASE_NOT_CONFIGURED_ERROR };
     }
 
     const provider = new GoogleAuthProvider();
     try {
         const result = await signInWithPopup(auth, provider);
-        return { user: result.user, error: null };
+        const additionalUserInfo = getAdditionalUserInfo(result);
+        const isNewUser = additionalUserInfo?.isNewUser || false;
+
+        return { user: result.user, isNewUser, error: null };
     } catch (error) {
-        return { user: null, error: error as Error };
+        return { user: null, isNewUser: false, error: error as Error };
+    }
+}
+
+/**
+ * Kakao 로그인 (OIDC)
+ */
+export async function signInWithKakao() {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+        return { user: null, isNewUser: false, error: FIREBASE_NOT_CONFIGURED_ERROR };
+    }
+
+    // Firebase Console에서 'oidc.kakao'로 제공업체 설정 필요
+    const provider = new OAuthProvider('oidc.kakao');
+    provider.addScope('openid');
+    provider.addScope('email');
+
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const additionalUserInfo = getAdditionalUserInfo(result);
+        const isNewUser = additionalUserInfo?.isNewUser || false;
+
+        return { user: result.user, isNewUser, error: null };
+    } catch (error) {
+        return { user: null, isNewUser: false, error: error as Error };
     }
 }
 
@@ -75,6 +106,18 @@ export async function signUp(email: string, password: string, displayName: strin
 }
 
 /**
+ * 이메일 인증 메일 발송
+ */
+export async function sendVerificationEmail(user: FirebaseUser) {
+    try {
+        await firebaseSendEmailVerification(user);
+        return { error: null };
+    } catch (error) {
+        return { error: error as Error };
+    }
+}
+
+/**
  * 로그아웃
  */
 export async function signOut() {
@@ -85,6 +128,23 @@ export async function signOut() {
 
     try {
         await firebaseSignOut(auth);
+        return { error: null };
+    } catch (error) {
+        return { error: error as Error };
+    }
+}
+
+/**
+ * 회원 탈퇴 (사용자 삭제)
+ */
+export async function deleteCurrentUser() {
+    const auth = getFirebaseAuth();
+    if (!auth || !auth.currentUser) {
+        return { error: new Error("No authenticated user.") };
+    }
+
+    try {
+        await auth.currentUser.delete();
         return { error: null };
     } catch (error) {
         return { error: error as Error };

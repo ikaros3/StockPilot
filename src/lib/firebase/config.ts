@@ -54,7 +54,8 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 
 // Emulator 연결 상태
-let emulatorConnected = false;
+let authEmulatorConnected = false;
+let firestoreEmulatorConnected = false;
 
 /**
  * Firebase 앱 가져오기 (지연 초기화)
@@ -89,10 +90,11 @@ export function getFirebaseAuth(): Auth | null {
         auth = getAuth(firebaseApp);
 
         // Emulator 연결
-        if (useEmulator && !emulatorConnected && typeof window !== "undefined") {
+        if (useEmulator && !authEmulatorConnected && typeof window !== "undefined") {
             try {
                 connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
                 console.log("[Firebase] Auth Emulator 연결됨 (localhost:9099)");
+                authEmulatorConnected = true;
             } catch (error) {
                 console.warn("[Firebase] Auth Emulator 연결 실패:", error);
             }
@@ -112,11 +114,11 @@ export function getFirestoreDb(): Firestore | null {
         db = getFirestore(firebaseApp);
 
         // Emulator 연결
-        if (useEmulator && !emulatorConnected && typeof window !== "undefined") {
+        if (useEmulator && !firestoreEmulatorConnected && typeof window !== "undefined") {
             try {
                 connectFirestoreEmulator(db, "localhost", 8080);
                 console.log("[Firebase] Firestore Emulator 연결됨 (localhost:8080)");
-                emulatorConnected = true;
+                firestoreEmulatorConnected = true;
             } catch (error) {
                 console.warn("[Firebase] Firestore Emulator 연결 실패:", error);
             }

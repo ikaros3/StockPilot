@@ -14,7 +14,8 @@ import {
     TrendingDown,
     Search,
     X,
-    Loader2
+    Loader2,
+    LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CreatePortfolioDialog } from "@/components/portfolio";
 import { createPortfolio, getUserPortfolios } from "@/services/portfolio";
+import { useAuth } from "@/providers/AuthProvider";
+import { signOut } from "@/lib/firebase/auth";
 import type { Portfolio } from "@/types";
 
 interface SidebarProps {
@@ -45,14 +48,21 @@ const navItems = [
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
+    const { user, loading: isAuthLoading } = useAuth();
     const [portfolios, setPortfolios] = useState<PortfolioWithStats[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // 포트폴리오 목록 로드
     const loadPortfolios = useCallback(async () => {
+        if (!user) {
+            setPortfolios([]); // Clear portfolios if no user
+            setIsLoading(false);
+            return;
+        }
+
         try {
             setIsLoading(true);
-            const portfolioList = await getUserPortfolios("demo_user");
+            const portfolioList = await getUserPortfolios(user.uid);
 
             // 각 포트폴리오의 통계 계산
             const portfoliosWithStats = await Promise.all(
@@ -104,17 +114,20 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [user]); // Add user to dependency array
 
     useEffect(() => {
-        loadPortfolios();
-    }, [loadPortfolios]);
+        if (!isAuthLoading) { // Only load portfolios once auth state is known
+            loadPortfolios();
+        }
+    }, [loadPortfolios, isAuthLoading]);
 
     // 포트폴리오 생성
     const handleCreatePortfolio = async (name: string, description: string) => {
+        if (!user) return;
         try {
             const newPortfolio = await createPortfolio({
-                userId: "demo_user",
+                userId: user.uid,
                 name,
                 description,
             });
@@ -127,6 +140,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         } catch (error) {
             console.error("[Sidebar] 포트폴리오 생성 실패:", error);
             throw error;
+        }
+    };
+
+    // 로그아웃
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            router.push("/login");
+        } catch (error) {
+            console.error("로그아웃 실패:", error);
         }
     };
 
@@ -261,6 +284,17 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                             </div>
                         </div>
                     </ScrollArea>
+
+                    <div className="p-4 border-t">
+                        <Button
+                            variant="ghost"
+                            className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={handleLogout}
+                        >
+                            <LogOut className="mr-2 h-4 w-4" />
+                            로그아웃
+                        </Button>
+                    </div>
                 </div>
             </aside>
         </>
