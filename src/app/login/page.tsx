@@ -69,7 +69,7 @@ export default function LoginPage() {
 
         if (result.error) {
             console.error("Google Login Error:", result.error);
-            setError(`Google 로그인 실패: ${result.error.message} (${result.error.code || 'unknown'})`);
+            setError(`Google 로그인 실패: ${result.error.message} (${(result.error as any).code || 'unknown'})`);
             setIsLoading(false);
             return;
         }
