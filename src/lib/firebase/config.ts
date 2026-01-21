@@ -11,8 +11,8 @@ import { getFirestore, Firestore, connectFirestoreEmulator } from "firebase/fire
  * 3. LocalStorage 폴백: 위 두 가지 모두 해당되지 않는 경우
  */
 
-// Emulator 사용 여부
-export const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+// Emulator 사용 여부 (프로덕션 빌드에서는 무조건 비활성화)
+export const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true" && process.env.NODE_ENV !== "production";
 
 // Firebase 설정 확인
 export const isFirebaseConfigured = !!(
