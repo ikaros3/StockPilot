@@ -114,8 +114,8 @@ class ApiQueue {
                         const response = await fetch(`/api/kis/price?symbol=${item.stockCode}`);
                         const data = await response.json();
 
-                        if (!response.ok || !data.price) {
-                            throw new Error(data.error || "Failed to fetch price");
+                        if (!response.ok || !data || !data.price) {
+                            throw new Error((data && data.error) || "Failed to fetch price");
                         }
 
                         // 캐시 저장

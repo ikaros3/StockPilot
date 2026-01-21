@@ -13,6 +13,7 @@ import { useStockPrice, useDailyPrices } from "@/hooks/useStockData";
 interface StockDetailPanelProps {
     stockCode: string;
     stockName: string;
+    purchasePrice?: number;
     onClose: () => void;
 }
 
@@ -30,7 +31,7 @@ function formatCurrency(num: number): string {
     return `${formatNumber(Math.round(num))}원`;
 }
 
-export function StockDetailPanel({ stockCode, stockName, onClose }: StockDetailPanelProps) {
+export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose }: StockDetailPanelProps) {
     const { price, isLoading: priceLoading } = useStockPrice(stockCode);
     const { dailyPrices, isLoading: dailyLoading } = useDailyPrices(stockCode);
 
@@ -69,84 +70,92 @@ export function StockDetailPanel({ stockCode, stockName, onClose }: StockDetailP
                 <div className="flex items-center gap-3">
                     <CardTitle className="text-lg">{stockName}</CardTitle>
                     <Badge variant="outline">{stockCode}</Badge>
-                    <Link href={`/stocks/${stockCode}`}>
-                        <Button variant="ghost" size="sm" className="gap-1">
-                            <ExternalLink className="h-3 w-3" />
-                            상세 분석
-                        </Button>
-                    </Link>
+
                 </div>
                 <Button variant="ghost" size="icon" onClick={onClose}>
                     <X className="h-4 w-4" />
                 </Button>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* 미니 차트 영역 */}
-                    {/* 차트 영역 */}
-                    <div className="lg:col-span-2 min-h-[400px]">
-                        {dailyLoading ? (
-                            <Skeleton className="h-[400px] w-full" />
-                        ) : dailyPrices && dailyPrices.length > 0 ? (
-                            <StockChart data={dailyPrices} height={400} />
-                        ) : (
-                            <div className="h-[400px] flex items-center justify-center bg-muted/20 rounded-lg">
-                                <p className="text-muted-foreground text-sm">차트 데이터 없음</p>
-                            </div>
-                        )}
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    {/* 시세 정보 (왼쪽 - 좁게) */}
+                    <div className="space-y-3 lg:col-span-1 order-2 lg:order-1 flex flex-col pb-4">
 
-                    {/* 시세 정보 */}
-                    <div className="space-y-4">
-                        {/* 현재가 */}
+                        {/* 상세 분석 버튼 위치 이동 */}
                         <div>
-                            <p className="text-sm text-muted-foreground">현재가</p>
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold">{formatCurrency(currentPrice)}</span>
-                                <div className={cn(
-                                    "flex items-center gap-1",
-                                    isProfit ? "text-red-500" : "text-blue-500"
-                                )}>
-                                    {isProfit ? (
-                                        <TrendingUp className="h-4 w-4" />
-                                    ) : (
-                                        <TrendingDown className="h-4 w-4" />
-                                    )}
-                                    <span className="text-sm font-medium">
-                                        {isProfit ? "+" : ""}{changeRate.toFixed(2)}%
-                                    </span>
-                                </div>
-                            </div>
+                            <Link href={`/stocks/${stockCode}`}>
+                                <Button variant="outline" size="sm" className="w-full gap-2 h-8 text-xs">
+                                    <ExternalLink className="h-3 w-3" />
+                                    상세 분석
+                                </Button>
+                            </Link>
                         </div>
 
-                        {/* 전일대비 / 거래량 */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        {/* 정보 표시 영역 (세로 스택) */}
+                        <div className="space-y-2">
+                            {/* 현재가 */}
                             <div>
-                                <p className="text-muted-foreground">전일대비</p>
+                                <p className="text-xs text-muted-foreground mb-0.5">현재가</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl font-bold">{formatCurrency(currentPrice)}</span>
+                                    <div className={cn(
+                                        "flex items-center gap-1",
+                                        isProfit ? "text-red-500" : "text-blue-500"
+                                    )}>
+                                        {isProfit ? (
+                                            <TrendingUp className="h-3 w-3" />
+                                        ) : (
+                                            <TrendingDown className="h-3 w-3" />
+                                        )}
+                                        <span className="text-xs font-medium">
+                                            {isProfit ? "+" : ""}{changeRate.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 전일대비 */}
+                            <div>
+                                <p className="text-xs text-muted-foreground mb-0.5">전일대비</p>
                                 <p className={cn(
-                                    "font-medium",
+                                    "font-medium text-base",
                                     isProfit ? "text-red-500" : "text-blue-500"
                                 )}>
                                     {isProfit ? "+" : ""}{formatCurrency(changePrice)}
                                 </p>
                             </div>
-                            <div>
-                                <p className="text-muted-foreground">거래량</p>
-                                <p className="font-medium">{formatNumber(volume)}주</p>
-                            </div>
-                        </div>
 
-                        {/* 고가/저가 */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            {/* 거래량 */}
                             <div>
-                                <p className="text-muted-foreground">고가</p>
-                                <p className="font-medium text-red-500">{formatCurrency(high)}</p>
+                                <p className="text-xs text-muted-foreground mb-0.5">거래량</p>
+                                <p className="font-medium text-base">{formatNumber(volume)}주</p>
                             </div>
+
+                            {/* 고가 */}
                             <div>
-                                <p className="text-muted-foreground">저가</p>
-                                <p className="font-medium text-blue-500">{formatCurrency(low)}</p>
+                                <p className="text-xs text-muted-foreground mb-0.5">고가</p>
+                                <p className="font-medium text-base text-red-500">{formatCurrency(high)}</p>
+                            </div>
+
+                            {/* 저가 */}
+                            <div>
+                                <p className="text-xs text-muted-foreground mb-0.5">저가</p>
+                                <p className="font-medium text-base text-blue-500">{formatCurrency(low)}</p>
                             </div>
                         </div>
+                    </div>
+
+                    {/* 차트 영역 (오른쪽 - 넓게) */}
+                    <div className="lg:col-span-3 min-h-[400px] order-1 lg:order-2">
+                        {dailyLoading ? (
+                            <Skeleton className="h-[400px] w-full" />
+                        ) : dailyPrices && dailyPrices.length > 0 ? (
+                            <StockChart data={dailyPrices} height={400} purchasePrice={purchasePrice} />
+                        ) : (
+                            <div className="h-[400px] flex items-center justify-center bg-muted/20 rounded-lg">
+                                <p className="text-muted-foreground text-sm">차트 데이터 없음</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </CardContent>

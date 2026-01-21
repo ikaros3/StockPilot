@@ -76,7 +76,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("all");
-  const [selectedStock, setSelectedStock] = useState<{ code: string; name: string } | null>(null);
+  const [selectedStock, setSelectedStock] = useState<{ code: string; name: string; purchasePrice: number } | null>(null);
 
   // localStorage에서 저장된 선택값 복원
   useEffect(() => {
@@ -390,7 +390,11 @@ export default function Home() {
               if (selectedStock?.code === holding.stockCode) {
                 setSelectedStock(null);
               } else {
-                setSelectedStock({ code: holding.stockCode, name: holding.stockName });
+                setSelectedStock({
+                  code: holding.stockCode,
+                  name: holding.stockName,
+                  purchasePrice: holding.purchasePrice // 매수가 저장
+                });
               }
             }}
           />
@@ -399,6 +403,7 @@ export default function Home() {
             <StockDetailPanel
               stockCode={selectedStock.code}
               stockName={selectedStock.name}
+              purchasePrice={selectedStock.purchasePrice} // 매수가 전달
               onClose={() => setSelectedStock(null)}
             />
           )}

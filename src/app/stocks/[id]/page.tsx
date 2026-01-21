@@ -21,7 +21,7 @@ import { AnalystTab } from "@/components/analysis/AnalystTab";
 
 import { useStockData } from "@/hooks/useStockData";
 
-// import { SummaryTab } from "@/components/analysis/SummaryTab"; // 이미 있음
+// ... existing imports ...
 
 interface StockDetailPageProps {
     params: Promise<{ id: string }>;
