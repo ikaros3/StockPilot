@@ -52,13 +52,52 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     const loadPortfolios = useCallback(async () => {
         try {
             setIsLoading(true);
-            const data = await getUserPortfolios("demo_user");
-            // 임시로 holdingCount와 profitRate 추가
-            const portfoliosWithStats = data.map((p) => ({
-                ...p,
-                holdingCount: 0,
-                profitRate: 0,
-            }));
+            const portfolioList = await getUserPortfolios("demo_user");
+
+            // 각 포트폴리오의 통계 계산
+            const portfoliosWithStats = await Promise.all(
+                portfolioList.map(async (portfolio) => {
+                    // 보유 종목 조회
+                    const { getPortfolioHoldings } = await import("@/services/portfolio");
+                    const holdings = await getPortfolioHoldings(portfolio.id);
+                    const holdingCount = holdings.length;
+
+                    if (holdingCount === 0) {
+                        return {
+                            ...portfolio,
+                            holdingCount: 0,
+                            profitRate: 0,
+                        };
+                    }
+
+                    // 현재가 조회 (apiQueue 사용)
+                    const { apiQueue } = await import("@/services/api-queue");
+                    const stockCodes = holdings.map(h => h.stockCode);
+                    const priceMap = await apiQueue.fetchPrices(stockCodes);
+
+                    // 수익률 계산
+                    let totalInvestment = 0;
+                    let totalCurrentValue = 0;
+
+                    holdings.forEach(h => {
+                        const priceData = priceMap.get(h.stockCode);
+                        const currentPrice = priceData ? priceData.currentPrice : h.purchasePrice; // 데이터 없으면 매수가로 가정 (수익률 0)
+
+                        totalInvestment += h.purchasePrice * h.quantity;
+                        totalCurrentValue += currentPrice * h.quantity;
+                    });
+
+                    const totalProfit = totalCurrentValue - totalInvestment;
+                    const profitRate = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
+
+                    return {
+                        ...portfolio,
+                        holdingCount,
+                        profitRate,
+                    };
+                })
+            );
+
             setPortfolios(portfoliosWithStats);
         } catch (error) {
             console.error("[Sidebar] 포트폴리오 로드 실패:", error);

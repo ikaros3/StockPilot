@@ -167,4 +167,49 @@ export class ServerKisService {
             return data;
         });
     }
+    /**
+     * 배치 주가 정보 조회
+     */
+    static async getPrices(symbols: string[]): Promise<Record<string, any>> {
+        const results: Record<string, any> = {};
+
+        // 병렬 처리
+        await Promise.all(
+            symbols.map(async (symbol) => {
+                try {
+                    const data = await this.callApi(
+                        "/uapi/domestic-stock/v1/quotations/inquire-price",
+                        "FHKST01010100",
+                        {
+                            FID_COND_MRKT_DIV_CODE: "J",
+                            FID_INPUT_ISCD: symbol,
+                        }
+                    );
+
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const anyData = data as any;
+
+                    if (anyData?.output) {
+                        const o = anyData.output;
+                        results[symbol] = {
+                            stockCode: symbol,
+                            stockName: "",
+                            currentPrice: parseInt(o.stck_prpr, 10),
+                            changePrice: parseInt(o.prdy_vrss, 10),
+                            changeRate: parseFloat(o.prdy_ctrt),
+                            openPrice: parseInt(o.stck_oprc, 10),
+                            highPrice: parseInt(o.stck_hgpr, 10),
+                            lowPrice: parseInt(o.stck_lwpr, 10),
+                            volume: parseInt(o.acml_vol, 10),
+                        };
+                    }
+                } catch (error) {
+                    console.error(`[KIS Service] Failed to fetch price for ${symbol}:`, error);
+                    // 개별 실패는 무시하고 성공한 것만 반환
+                }
+            })
+        );
+
+        return results;
+    }
 }

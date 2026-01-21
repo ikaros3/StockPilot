@@ -107,30 +107,50 @@ class ApiQueue {
             const batch = this.queue.splice(0, this.BATCH_SIZE);
             console.log(`[ApiQueue] 배치 처리 시작: ${batch.length}건 (남은 요청: ${this.queue.length}건)`);
 
-            // 배치 내 병렬 처리
-            await Promise.all(
-                batch.map(async (item) => {
-                    try {
-                        const response = await fetch(`/api/kis/price?symbol=${item.stockCode}`);
-                        const data = await response.json();
+            // 배치 내 요청의 종목 코드 수집
+            const symbols = batch.map(item => item.stockCode);
 
-                        if (!response.ok || !data || !data.price) {
-                            throw new Error((data && data.error) || "Failed to fetch price");
-                        }
+            try {
+                // 배치 API 호출
+                const response = await fetch('/api/kis/prices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbols })
+                });
 
-                        // 캐시 저장
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Failed to fetch batch prices");
+                }
+
+                const prices = data.prices || {};
+
+                // 각 요청에 결과 분배
+                batch.forEach(item => {
+                    const priceData = prices[item.stockCode];
+
+                    if (priceData) {
+                        // 성공: 캐시 저장 및 resolve
                         this.cache.set(item.stockCode, {
-                            data: data.price,
+                            data: priceData,
                             timestamp: Date.now(),
                         });
-
-                        item.resolve(data.price);
-                    } catch (error) {
-                        console.error(`[ApiQueue] ${item.stockCode} 조회 실패:`, error);
-                        item.resolve(null); // 에러 시 null 반환
+                        item.resolve(priceData);
+                    } else {
+                        // 실패: 개별적으로 실패 처리 (null 반환)
+                        console.warn(`[ApiQueue] ${item.stockCode} 데이터 없음`);
+                        item.resolve(null);
                     }
-                })
-            );
+                });
+
+            } catch (error) {
+                console.error(`[ApiQueue] 배치 조회 실패:`, error);
+                // 배치 전체 실패 시 모든 요청에 대해 에러 처리 (또는 null 반환)
+                batch.forEach(item => {
+                    item.resolve(null);
+                });
+            }
 
             // 다음 배치가 있으면 딜레이
             if (this.queue.length > 0) {
