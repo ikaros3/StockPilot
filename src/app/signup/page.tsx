@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { signUp, signInWithGoogle, signInWithKakao, sendVerificationEmail, signOut, signInWithEmail } from "@/lib/firebase/auth";
-import { getOrCreateUserProfile } from "@/lib/firebase/user";
+import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 
 export default function SignUpPage() {
     const router = useRouter();
