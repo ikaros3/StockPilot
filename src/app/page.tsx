@@ -164,109 +164,155 @@ export default function Home() {
           }
         }
 
-        if (holdingsList.length === 0) {
-          setData({
-            holdings: [],
-            portfolioSummary: {
-              totalInvestment: 0,
-              currentValue: 0,
-              totalProfit: 0,
-              profitRate: 0,
-              holdingCount: 0,
-              performanceGrade: "average",
-            },
-            storageType,
-          });
-          setLoading(false);
-          return;
-        }
+        // 1단계: 기본 데이터로 먼저 렌더링 (가격 정보 없음)
+        const initialHoldingsWithPrice: HoldingWithPrice[] = holdingsList.map((holding: Holding) => ({
+          id: holding.id,
+          stockCode: holding.stockCode,
+          stockName: holding.stockName,
+          purchasePrice: holding.purchasePrice,
+          quantity: holding.quantity,
+          currentPrice: null,
+          evaluationAmount: null,
+          profit: null,
+          profitRate: null,
+          performanceStatus: "neutral" as PerformanceStatus,
+          priceChange: null,
+          priceChangeRate: null,
+          isApiSuccess: false,
+        }));
 
-        // 실제 현재가 조회 (전역 API 큐를 통해 Rate Limit 관리)
-        const { apiQueue } = await import("@/services/api-queue");
-
-        // 모든 종목 코드 추출
-        const stockCodes = holdingsList.map((h: Holding) => h.stockCode);
-
-        // 전역 큐를 통해 배치 처리 (자동으로 Rate Limit 관리)
-        const priceMap = await apiQueue.fetchPrices(stockCodes);
-
-        // 결과 매핑
-        const holdingsWithPrice: HoldingWithPrice[] = holdingsList.map((holding: Holding) => {
-          const priceData = priceMap.get(holding.stockCode);
-
-          if (priceData) {
-            const currentPrice = priceData.currentPrice;
-            const evaluationAmount = currentPrice * holding.quantity;
-            const investmentAmount = holding.purchasePrice * holding.quantity;
-            const profit = evaluationAmount - investmentAmount;
-            const profitRate = investmentAmount > 0 ? (profit / investmentAmount) * 100 : 0;
-
-            return {
-              id: holding.id,
-              stockCode: holding.stockCode,
-              stockName: holding.stockName,
-              purchasePrice: holding.purchasePrice,
-              quantity: holding.quantity,
-              currentPrice,
-              evaluationAmount,
-              profit,
-              profitRate: Math.round(profitRate * 100) / 100,
-              performanceStatus: getPerformanceStatus(profitRate),
-              priceChange: priceData.changePrice,
-              priceChangeRate: priceData.changeRate,
-              isApiSuccess: true,
-            };
-          } else {
-            console.error(`[Dashboard] ${holding.stockCode} 가격 조회 실패`);
-
-            return {
-              id: holding.id,
-              stockCode: holding.stockCode,
-              stockName: holding.stockName,
-              purchasePrice: holding.purchasePrice,
-              quantity: holding.quantity,
-              currentPrice: null,
-              evaluationAmount: null,
-              profit: null,
-              profitRate: null,
-              performanceStatus: "neutral" as PerformanceStatus,
-              priceChange: null,
-              priceChangeRate: null,
-              isApiSuccess: false,
-            };
-          }
-        });
-
-        // 포트폴리오 요약 계산 (API 성공한 종목만 합산)
-        const successfulHoldings = holdingsWithPrice.filter(h => h.isApiSuccess);
-        const totalInvestment = holdingsWithPrice.reduce(
+        const initialTotalInvestment = initialHoldingsWithPrice.reduce(
           (sum, h) => sum + h.purchasePrice * h.quantity,
           0
         );
-        const currentValue = successfulHoldings.reduce(
-          (sum, h) => sum + (h.evaluationAmount ?? 0),
-          0
-        );
-        const totalProfit = currentValue - totalInvestment;
-        const profitRate = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
 
+        // UI 1차 업데이트 (로딩 해제)
         setData({
-          holdings: holdingsWithPrice,
+          holdings: initialHoldingsWithPrice,
           portfolioSummary: {
-            totalInvestment,
-            currentValue,
-            totalProfit,
-            profitRate: Math.round(profitRate * 100) / 100,
-            holdingCount: holdingsWithPrice.length,
-            performanceGrade: getPerformanceGrade(profitRate),
+            totalInvestment: initialTotalInvestment,
+            currentValue: 0, // 아직 평가액 없음
+            totalProfit: 0,
+            profitRate: 0,
+            holdingCount: initialHoldingsWithPrice.length,
+            performanceGrade: "average",
           },
           storageType,
         });
+        setLoading(false);
+
+        if (holdingsList.length === 0) return;
+
+        // 2단계: 실제 현재가 비동기 조회 및 업데이트
+        try {
+          const { apiQueue } = await import("@/services/api-queue");
+          const stockCodes = holdingsList.map((h: Holding) => h.stockCode);
+
+          // 전역 큐를 통해 배치 처리
+          const priceMap = await apiQueue.fetchPrices(stockCodes);
+
+          // 결과 매핑 및 재계산
+          const updatedHoldings: HoldingWithPrice[] = holdingsList.map((holding: Holding) => {
+            const priceData = priceMap.get(holding.stockCode);
+
+            if (priceData) {
+              const currentPrice = priceData.currentPrice;
+              const evaluationAmount = currentPrice * holding.quantity;
+              const investmentAmount = holding.purchasePrice * holding.quantity;
+              const profit = evaluationAmount - investmentAmount;
+              const profitRate = investmentAmount > 0 ? (profit / investmentAmount) * 100 : 0;
+
+              return {
+                id: holding.id,
+                stockCode: holding.stockCode,
+                stockName: holding.stockName,
+                purchasePrice: holding.purchasePrice,
+                quantity: holding.quantity,
+                currentPrice,
+                evaluationAmount,
+                profit,
+                profitRate: Math.round(profitRate * 100) / 100,
+                performanceStatus: getPerformanceStatus(profitRate),
+                priceChange: priceData.changePrice,
+                priceChangeRate: priceData.changeRate,
+                isApiSuccess: true,
+              };
+            } else {
+              return {
+                id: holding.id,
+                stockCode: holding.stockCode,
+                stockName: holding.stockName,
+                purchasePrice: holding.purchasePrice,
+                quantity: holding.quantity,
+                currentPrice: null,
+                evaluationAmount: null,
+                profit: null,
+                profitRate: null,
+                performanceStatus: "neutral" as PerformanceStatus,
+                priceChange: null,
+                priceChangeRate: null,
+                isApiSuccess: false,
+              };
+            }
+          });
+
+          // 포트폴리오 요약 재계산
+          const successfulHoldings = updatedHoldings.filter(h => h.isApiSuccess);
+          const currentValue = successfulHoldings.reduce(
+            (sum, h) => sum + (h.evaluationAmount ?? 0),
+            0
+          );
+          // 평가금액이 없는 종목은 매수가를 기준으로 합산할지 여부 결정 (여기서는 제외하고 계산)
+          // 또는 "데이터 없음"인 종목도 매수가를 현재가로 가정하려면 로직 수정 필요
+
+          const totalProfit = currentValue - initialTotalInvestment; // 주의: 일부 종목 데이터 누락 시 수익률 왜곡 가능성 있음
+          // 데이터가 있는 종목에 대해서만 투자금을 따로 계산해야 정확함
+
+          // 정확한 수익률 계산을 위해 데이터가 있는 종목만 집계
+          const verifiedInvestment = successfulHoldings.reduce(
+            (sum, h) => sum + h.purchasePrice * h.quantity, 0
+          );
+          const verifiedCurrentValue = successfulHoldings.reduce(
+            (sum, h) => sum + (h.evaluationAmount ?? 0), 0
+          );
+
+          // 전체 요약에는 '데이터 없는 종목'은 제외하거나, 아니면 매수가=평가액으로 가정하는 것이 UI상 자연스러움
+          // 여기서는 '매수가=평가액' 가정 (보수적 접근)
+          let finalCurrentValue = 0;
+          updatedHoldings.forEach(h => {
+            if (h.isApiSuccess && h.evaluationAmount !== null) {
+              finalCurrentValue += h.evaluationAmount;
+            } else {
+              // 데이터 없으면 매수가를 평가액으로 사용
+              finalCurrentValue += h.purchasePrice * h.quantity;
+            }
+          });
+
+          const finalTotalProfit = finalCurrentValue - initialTotalInvestment;
+          const finalProfitRate = initialTotalInvestment > 0 ? (finalTotalProfit / initialTotalInvestment) * 100 : 0;
+
+          setData(prev => prev ? {
+            ...prev,
+            holdings: updatedHoldings,
+            portfolioSummary: {
+              totalInvestment: initialTotalInvestment,
+              currentValue: finalCurrentValue,
+              totalProfit: finalTotalProfit,
+              profitRate: Math.round(finalProfitRate * 100) / 100,
+              holdingCount: updatedHoldings.length,
+              performanceGrade: getPerformanceGrade(finalProfitRate),
+            }
+          } : null);
+
+        } catch (priceError) {
+          console.error("[Dashboard] 가격 정보 로드 실패 (UI 유지):", priceError);
+          // 가격 로드 실패해도 이미 1단계 데이터가 있으므로 UI는 유지됨
+        }
+
       } catch (err) {
         console.error("[Dashboard] 포트폴리오 로드 실패:", err);
         setError("포트폴리오를 불러오는 중 오류가 발생했습니다.");
-      } finally {
-        setLoading(false);
+        setLoading(false); // 에러 발생 시 로딩 해제
       }
     }
 

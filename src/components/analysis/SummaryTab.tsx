@@ -32,29 +32,7 @@ export function SummaryTab({ stockId }: SummaryTabProps) {
     const { price, company, ratios, consensus, isLoading, isError, refresh } = useStockData(stockCode);
     const purchaseInfo = purchaseInfoMap[stockCode] || { purchasePrice: 0, targetPrice: 100000, portfolioWeight: 0 };
 
-    // 로딩 상태
-    if (isLoading) {
-        return (
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-48" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-20 w-full" />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-32" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-16 w-full" />
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+
 
     // 에러 상태
     if (isError) {
@@ -75,19 +53,31 @@ export function SummaryTab({ stockId }: SummaryTabProps) {
     }
 
     // 데이터 계산
-    const currentPrice = price?.currentPrice || 0;
+    const currentPrice = price?.currentPrice;
     const purchasePrice = purchaseInfo.purchasePrice;
     const targetPrice = consensus?.averageTargetPrice || purchaseInfo.targetPrice;
-    const profitRate = purchasePrice > 0 ? ((currentPrice - purchasePrice) / purchasePrice) * 100 : 0;
+
+    // 데이터 누락 여부
+    const isDataMissing = !isLoading && !currentPrice;
+
+    // 수익률 계산 (데이터 없으면 null)
+    const profitRate = (currentPrice && purchasePrice > 0)
+        ? ((currentPrice - purchasePrice) / purchasePrice) * 100
+        : null;
 
     // 목표가 진행률 계산
-    const targetProgress = targetPrice > purchasePrice
+    const targetProgress = (currentPrice && targetPrice > purchasePrice)
         ? Math.min(100, Math.max(0, ((currentPrice - purchasePrice) / (targetPrice - purchasePrice)) * 100))
         : 0;
 
     // 성과 평가 텍스트 생성
     const generatePerformanceText = () => {
         const stockName = company?.corpName || price?.stockName || `종목 ${stockCode}`;
+
+        if (isDataMissing || profitRate === null) {
+            return `${stockName}의 현재 가격 정보를 불러올 수 없습니다.`;
+        }
+
         const profitText = profitRate >= 0
             ? `${profitRate.toFixed(1)}% 상승`
             : `${Math.abs(profitRate).toFixed(1)}% 하락`;
@@ -117,7 +107,7 @@ export function SummaryTab({ stockId }: SummaryTabProps) {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className={profitRate >= 0 ? "h-5 w-5 text-profit" : "h-5 w-5 text-loss"} />
+                        <TrendingUp className={profitRate && profitRate >= 0 ? "h-5 w-5 text-profit" : "h-5 w-5 text-loss"} />
                         현재 성과 평가
                         <span className="text-xs text-green-500 font-normal">● 실시간</span>
                     </CardTitle>
@@ -127,9 +117,9 @@ export function SummaryTab({ stockId }: SummaryTabProps) {
                         {generatePerformanceText()}
                     </p>
                     <div className="mt-4 flex items-center gap-4 text-sm">
-                        <span>현재가: <strong className="text-foreground">₩{currentPrice.toLocaleString()}</strong></span>
-                        <span className={profitRate >= 0 ? "text-profit" : "text-loss"}>
-                            {profitRate >= 0 ? "+" : ""}{profitRate.toFixed(2)}%
+                        <span>현재가: <strong className="text-foreground">{currentPrice ? `₩${currentPrice.toLocaleString()}` : "N/A"}</strong></span>
+                        <span className={(profitRate || 0) >= 0 ? "text-profit" : "text-loss"}>
+                            {profitRate !== null ? (profitRate >= 0 ? "+" : "") + profitRate.toFixed(2) + "%" : "N/A"}
                         </span>
                     </div>
                 </CardContent>
@@ -154,7 +144,7 @@ export function SummaryTab({ stockId }: SummaryTabProps) {
                     </div>
                     <div className="relative">
                         <Progress value={targetProgress} className="h-4" />
-                        {currentPrice > purchasePrice && currentPrice < targetPrice && (
+                        {currentPrice && currentPrice > purchasePrice && currentPrice < targetPrice && (
                             <div
                                 className="absolute top-0 h-4 w-1 bg-foreground"
                                 style={{ left: `${targetProgress}%` }}

@@ -42,32 +42,13 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
     const { price, company, isLoading } = useStockData(stockCode);
 
     // 가격 정보
-    const currentPrice = price?.currentPrice || 0;
-    const previousClose = (price?.currentPrice || 0) - (price?.changePrice || 0); // 전일종가 유추
-    const changePrice = price?.changePrice || 0;
-    const changeRate = price?.changeRate || 0;
-    const isProfit = changeRate >= 0;
+    const currentPrice = price?.currentPrice;
+    const changePrice = price?.changePrice;
+    const changeRate = price?.changeRate;
+    const isProfit = (changeRate || 0) >= 0;
 
-    // 로딩 중일 때
-    if (isLoading) {
-        return (
-            <DashboardLayout>
-                <div className="space-y-6">
-                    <div className="flex items-start justify-between">
-                        <Button variant="ghost" size="icon" asChild>
-                            <Link href="/">
-                                <ArrowLeft className="h-5 w-5" />
-                            </Link>
-                        </Button>
-                        <div className="space-y-2">
-                            <Skeleton className="h-8 w-48" />
-                            <Skeleton className="h-8 w-32" />
-                        </div>
-                    </div>
-                </div>
-            </DashboardLayout>
-        );
-    }
+    // 데이터가 없는 경우 (로딩 끝났는데 price가 없는 경우)
+    const isDataMissing = !isLoading && !currentPrice;
 
     return (
         <DashboardLayout>
@@ -82,26 +63,43 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
                         </Button>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold">{company?.corpName || price?.stockName || "종목명 로딩 실패"}</h1>
+                                <h1 className="text-2xl font-bold">
+                                    {isLoading ? (
+                                        <Skeleton className="h-8 w-48 inline-block align-middle" />
+                                    ) : (
+                                        company?.corpName || price?.stockName || stockCode
+                                    )}
+                                </h1>
                                 <Badge variant="outline">{stockCode}</Badge>
+                                {isDataMissing && (
+                                    <Badge variant="secondary" className="ml-2">데이터 없음</Badge>
+                                )}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                                <span className="text-2xl font-bold">
-                                    ₩{currentPrice.toLocaleString()}
-                                </span>
-                                <div className={cn(
-                                    "flex items-center gap-1",
-                                    isProfit ? "text-profit" : "text-loss"
-                                )}>
-                                    {isProfit ? (
-                                        <TrendingUp className="h-4 w-4" />
-                                    ) : (
-                                        <TrendingDown className="h-4 w-4" />
-                                    )}
-                                    <span className="font-medium">
-                                        {isProfit ? "+" : ""}{changeRate.toFixed(2)}%
-                                    </span>
-                                </div>
+                                {isLoading ? (
+                                    <Skeleton className="h-8 w-32" />
+                                ) : (
+                                    <>
+                                        <span className={cn("text-2xl font-bold", isDataMissing && "text-muted-foreground")}>
+                                            {currentPrice ? `₩${currentPrice.toLocaleString()}` : "N/A"}
+                                        </span>
+                                        {!isDataMissing && (
+                                            <div className={cn(
+                                                "flex items-center gap-1",
+                                                isProfit ? "text-profit" : "text-loss"
+                                            )}>
+                                                {isProfit ? (
+                                                    <TrendingUp className="h-4 w-4" />
+                                                ) : (
+                                                    <TrendingDown className="h-4 w-4" />
+                                                )}
+                                                <span className="font-medium">
+                                                    {isProfit ? "+" : ""}{changeRate?.toFixed(2)}%
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

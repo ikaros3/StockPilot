@@ -49,34 +49,7 @@ export function AnalystTab({ stockId }: AnalystTabProps) {
     const stockCode = stockCodeMap[stockId] || stockId;
     const { reports, consensus, isLoading, isError } = useAnalystData(stockCode);
 
-    // 로딩 상태
-    if (isLoading) {
-        return (
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-40" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4">
-                            <Skeleton className="h-24" />
-                            <Skeleton className="h-24" />
-                            <Skeleton className="h-24" />
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-48" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-20" />
-                        <Skeleton className="h-20" />
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+
 
     // 에러 또는 데이터 없음
     if (isError || !reports) {
@@ -138,69 +111,93 @@ export function AnalystTab({ stockId }: AnalystTabProps) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    {/* 목표가 */}
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="p-4 bg-muted rounded-lg">
-                            <span className="text-sm text-muted-foreground">최저 목표가</span>
-                            <p className="text-xl font-bold">
-                                ₩{(consensusData.lowTargetPrice || consensusData.averageTargetPrice * 0.9).toLocaleString()}
-                            </p>
-                        </div>
-                        <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                            <span className="text-sm text-muted-foreground">평균 목표가</span>
-                            <p className="text-2xl font-bold text-primary">
-                                ₩{consensusData.averageTargetPrice.toLocaleString()}
-                            </p>
-                        </div>
-                        <div className="p-4 bg-muted rounded-lg">
-                            <span className="text-sm text-muted-foreground">최고 목표가</span>
-                            <p className="text-xl font-bold">
-                                ₩{(consensusData.highTargetPrice || consensusData.averageTargetPrice * 1.1).toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* 상방/하방 여력 */}
-                    <div className="flex items-center justify-center gap-8">
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-profit" />
-                            <span className="text-sm text-muted-foreground">상방 여력</span>
-                            <span className="text-xl font-bold text-profit">
-                                {consensusData.upside >= 0 ? "+" : ""}{consensusData.upside.toFixed(1)}%
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">리포트 수</span>
-                            <span className="text-xl font-bold">{consensusData.reportCount}건</span>
-                        </div>
-                    </div>
-
-                    {/* 투자 의견 분포 */}
-                    {totalOpinions > 0 && (
-                        <div className="space-y-2">
-                            <span className="text-sm text-muted-foreground">투자 의견 분포</span>
-                            <div className="flex h-6 rounded-full overflow-hidden">
-                                {Object.entries(opinionPercentages)
-                                    .filter(([, value]) => value > 0)
-                                    .map(([opinion, value]) => (
-                                        <div
-                                            key={opinion}
-                                            className={cn(opinionColors[opinion])}
-                                            style={{ width: `${value}%` }}
-                                        />
-                                    ))}
+                    {isLoading ? (
+                        <>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <Skeleton className="h-24 w-full" />
+                                <Skeleton className="h-24 w-full" />
+                                <Skeleton className="h-24 w-full" />
                             </div>
-                            <div className="flex flex-wrap gap-3 mt-2">
-                                {Object.entries(opinionPercentages)
-                                    .filter(([, value]) => value > 0)
-                                    .map(([opinion, value]) => (
-                                        <div key={opinion} className="flex items-center gap-1 text-xs">
-                                            <div className={cn("w-3 h-3 rounded", opinionColors[opinion])} />
-                                            <span>{opinionLabels[opinion]}: {value}%</span>
-                                        </div>
-                                    ))}
+                            <div className="flex items-center justify-center gap-8">
+                                <Skeleton className="h-8 w-32" />
+                                <Skeleton className="h-8 w-32" />
                             </div>
-                        </div>
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-6 w-full rounded-full" />
+                                <div className="flex flex-wrap gap-3 mt-2">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-4 w-20" />
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* 목표가 */}
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <span className="text-sm text-muted-foreground">최저 목표가</span>
+                                    <p className="text-xl font-bold">
+                                        ₩{(consensusData.lowTargetPrice || consensusData.averageTargetPrice * 0.9).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                                    <span className="text-sm text-muted-foreground">평균 목표가</span>
+                                    <p className="text-2xl font-bold text-primary">
+                                        ₩{consensusData.averageTargetPrice.toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <span className="text-sm text-muted-foreground">최고 목표가</span>
+                                    <p className="text-xl font-bold">
+                                        ₩{(consensusData.highTargetPrice || consensusData.averageTargetPrice * 1.1).toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 상방/하방 여력 */}
+                            <div className="flex items-center justify-center gap-8">
+                                <div className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-profit" />
+                                    <span className="text-sm text-muted-foreground">상방 여력</span>
+                                    <span className="text-xl font-bold text-profit">
+                                        {consensusData.upside >= 0 ? "+" : ""}{consensusData.upside.toFixed(1)}%
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">리포트 수</span>
+                                    <span className="text-xl font-bold">{consensusData.reportCount}건</span>
+                                </div>
+                            </div>
+
+                            {/* 투자 의견 분포 */}
+                            {totalOpinions > 0 && (
+                                <div className="space-y-2">
+                                    <span className="text-sm text-muted-foreground">투자 의견 분포</span>
+                                    <div className="flex h-6 rounded-full overflow-hidden">
+                                        {Object.entries(opinionPercentages)
+                                            .filter(([, value]) => value > 0)
+                                            .map(([opinion, value]) => (
+                                                <div
+                                                    key={opinion}
+                                                    className={cn(opinionColors[opinion])}
+                                                    style={{ width: `${value}%` }}
+                                                />
+                                            ))}
+                                    </div>
+                                    <div className="flex flex-wrap gap-3 mt-2">
+                                        {Object.entries(opinionPercentages)
+                                            .filter(([, value]) => value > 0)
+                                            .map(([opinion, value]) => (
+                                                <div key={opinion} className="flex items-center gap-1 text-xs">
+                                                    <div className={cn("w-3 h-3 rounded", opinionColors[opinion])} />
+                                                    <span>{opinionLabels[opinion]}: {value}%</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
@@ -215,56 +212,64 @@ export function AnalystTab({ stockId }: AnalystTabProps) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {reports.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
-                            최근 애널리스트 리포트가 없습니다.
-                        </p>
-                    ) : (
+                    {isLoading ? (
                         <div className="space-y-4">
-                            {reports.slice(0, 10).map((report: {
-                                id?: string;
-                                date: string;
-                                firm: string;
-                                title: string;
-                                opinion?: string;
-                                targetPrice: number;
-                                url?: string;
-                            }, i: number) => {
-                                const mappedOpinion = report.opinion ? mapOpinion(report.opinion) : "hold";
-                                return (
-                                    <div key={report.id || i} className="p-4 border rounded-lg space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-semibold">{report.firm}</span>
-                                                <span className="text-sm text-muted-foreground">{report.date}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {report.opinion && (
-                                                    <Badge className={opinionColors[mappedOpinion]}>
-                                                        {opinionLabels[mappedOpinion]}
-                                                    </Badge>
-                                                )}
-                                                {report.targetPrice > 0 && (
-                                                    <span className="font-bold">₩{report.targetPrice.toLocaleString()}</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground line-clamp-2">{report.title}</p>
-                                        {report.url && (
-                                            <a
-                                                href={report.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm text-blue-500 hover:underline flex items-center gap-1"
-                                            >
-                                                <ExternalLink className="h-3 w-3" />
-                                                리포트 보기
-                                            </a>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                            <Skeleton className="h-24 w-full" />
+                            <Skeleton className="h-24 w-full" />
+                            <Skeleton className="h-24 w-full" />
                         </div>
+                    ) : (
+                        reports.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8">
+                                최근 애널리스트 리포트가 없습니다.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {reports.slice(0, 10).map((report: {
+                                    id?: string;
+                                    date: string;
+                                    firm: string;
+                                    title: string;
+                                    opinion?: string;
+                                    targetPrice: number;
+                                    url?: string;
+                                }, i: number) => {
+                                    const mappedOpinion = report.opinion ? mapOpinion(report.opinion) : "hold";
+                                    return (
+                                        <div key={report.id || i} className="p-4 border rounded-lg space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-semibold">{report.firm}</span>
+                                                    <span className="text-sm text-muted-foreground">{report.date}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {report.opinion && (
+                                                        <Badge className={opinionColors[mappedOpinion]}>
+                                                            {opinionLabels[mappedOpinion]}
+                                                        </Badge>
+                                                    )}
+                                                    {report.targetPrice > 0 && (
+                                                        <span className="font-bold">₩{report.targetPrice.toLocaleString()}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground line-clamp-2">{report.title}</p>
+                                            {report.url && (
+                                                <a
+                                                    href={report.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sm text-blue-500 hover:underline flex items-center gap-1"
+                                                >
+                                                    <ExternalLink className="h-3 w-3" />
+                                                    리포트 보기
+                                                </a>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )
                     )}
                 </CardContent>
             </Card>

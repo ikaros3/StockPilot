@@ -90,38 +90,19 @@ export function ExitTimingTab({ stockId }: ExitTimingTabProps) {
     const { price, consensus, isLoading, isError } = useStockData(stockCode);
     const purchaseInfo = purchaseInfoMap[stockCode] || { purchasePrice: 0, quantity: 0 };
 
-    // 로딩 상태
-    if (isLoading) {
-        return (
-            <div className="space-y-6">
-                <Card className="border-l-4 border-l-profit">
-                    <CardHeader>
-                        <Skeleton className="h-6 w-40" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-20" />
-                        <Skeleton className="h-16" />
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-blue-500">
-                    <CardHeader>
-                        <Skeleton className="h-6 w-40" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-20" />
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+
 
     // 데이터가 없을 경우 기본값 사용
-    const currentPrice = price?.currentPrice || purchaseInfo.purchasePrice || 78000;
-    const targetPrice = consensus?.averageTargetPrice || currentPrice * 1.2;
+    const currentPrice = price?.currentPrice;
+    const isDataMissing = !isLoading && !currentPrice;
+
+    // 계산을 위한 안전한 숫자 (없으면 매수가 사용)
+    const safePrice = currentPrice || purchaseInfo.purchasePrice || 78000;
+    const targetPrice = consensus?.averageTargetPrice || safePrice * 1.2;
 
     const exitData = calculateExitStrategy(
-        currentPrice,
-        purchaseInfo.purchasePrice || currentPrice * 0.9,
+        safePrice,
+        purchaseInfo.purchasePrice || safePrice * 0.9,
         purchaseInfo.quantity || 100,
         targetPrice
     );
@@ -131,14 +112,23 @@ export function ExitTimingTab({ stockId }: ExitTimingTabProps) {
             {/* 현재 상태 표시 */}
             <Card>
                 <CardContent className="pt-6">
-                    <div className="flex items-center justify-between text-sm">
-                        <span>현재가: <strong>₩{currentPrice.toLocaleString()}</strong></span>
-                        <span>목표가: <strong>₩{targetPrice.toLocaleString()}</strong></span>
-                        <span className={exitData.currentProfitRate >= 0 ? "text-profit" : "text-loss"}>
-                            수익률: <strong>{exitData.currentProfitRate >= 0 ? "+" : ""}{exitData.currentProfitRate.toFixed(1)}%</strong>
-                        </span>
-                        <span className="text-xs text-green-500">● 실시간</span>
-                    </div>
+                    {isLoading ? (
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-5 w-16" />
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between text-sm">
+                            <span>현재가: <strong>{currentPrice ? `₩${currentPrice.toLocaleString()}` : "N/A"}</strong></span>
+                            <span>목표가: <strong>₩{targetPrice.toLocaleString()}</strong></span>
+                            <span className={(exitData.currentProfitRate || 0) >= 0 ? "text-profit" : "text-loss"}>
+                                수익률: <strong>{!isDataMissing ? ((exitData.currentProfitRate >= 0 ? "+" : "") + exitData.currentProfitRate.toFixed(1) + "%") : "N/A"}</strong>
+                            </span>
+                            <span className="text-xs text-green-500">● 실시간</span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -157,40 +147,54 @@ export function ExitTimingTab({ stockId }: ExitTimingTabProps) {
                     <CardDescription>단기 수익 확정 전략</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <span className="text-sm text-muted-foreground">매도 비율</span>
-                            <p className="text-xl font-bold">{exitData.firstExit.sellRatio}%</p>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">예상 수익</span>
-                            <p className={`text-xl font-bold ${exitData.firstExit.expectedProfit >= 0 ? "text-profit" : "text-loss"}`}>
-                                {exitData.firstExit.expectedProfit >= 0 ? "+" : ""}₩{exitData.firstExit.expectedProfit.toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
+                    {isLoading ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Skeleton className="h-16" />
+                                <Skeleton className="h-16" />
+                            </div>
+                            <Skeleton className="h-20 w-full" />
+                            <Skeleton className="h-6 w-48" />
+                            <Skeleton className="h-24 w-full" />
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-sm text-muted-foreground">매도 비율</span>
+                                    <p className="text-xl font-bold">{exitData.firstExit.sellRatio}%</p>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-muted-foreground">예상 수익</span>
+                                    <p className={`text-xl font-bold ${exitData.firstExit.expectedProfit >= 0 ? "text-profit" : "text-loss"}`}>
+                                        {exitData.firstExit.expectedProfit >= 0 ? "+" : ""}₩{exitData.firstExit.expectedProfit.toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
 
-                    <div>
-                        <span className="text-sm text-muted-foreground">매도 근거</span>
-                        <p className="mt-1">{exitData.firstExit.rationale}</p>
-                    </div>
+                            <div>
+                                <span className="text-sm text-muted-foreground">매도 근거</span>
+                                <p className="mt-1">{exitData.firstExit.rationale}</p>
+                            </div>
 
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">권장 시점: {exitData.firstExit.timing}</span>
-                    </div>
+                            <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">권장 시점: {exitData.firstExit.timing}</span>
+                            </div>
 
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm font-medium">리스크 요인</span>
-                        </div>
-                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                            {exitData.firstExit.riskFactors.map((risk, i) => (
-                                <li key={i}>{risk}</li>
-                            ))}
-                        </ul>
-                    </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                    <span className="text-sm font-medium">리스크 요인</span>
+                                </div>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                    {exitData.firstExit.riskFactors.map((risk, i) => (
+                                        <li key={i}>{risk}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 
@@ -209,43 +213,66 @@ export function ExitTimingTab({ stockId }: ExitTimingTabProps) {
                     <CardDescription>장기 수익 극대화 전략</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <span className="text-sm text-muted-foreground">매도 비율</span>
-                            <p className="text-xl font-bold">잔여 {exitData.secondExit.sellRatio}%</p>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">예상 총 수익</span>
-                            <p className={`text-xl font-bold ${exitData.secondExit.expectedProfit >= 0 ? "text-profit" : "text-loss"}`}>
-                                {exitData.secondExit.expectedProfit >= 0 ? "+" : ""}₩{exitData.secondExit.expectedProfit.toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
+                    {isLoading ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Skeleton className="h-16" />
+                                <Skeleton className="h-16" />
+                            </div>
+                            <Skeleton className="h-20 w-full" />
+                            <Skeleton className="h-4 w-48" />
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-sm text-muted-foreground">매도 비율</span>
+                                    <p className="text-xl font-bold">잔여 {exitData.secondExit.sellRatio}%</p>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-muted-foreground">예상 총 수익</span>
+                                    <p className={`text-xl font-bold ${exitData.secondExit.expectedProfit >= 0 ? "text-profit" : "text-loss"}`}>
+                                        {exitData.secondExit.expectedProfit >= 0 ? "+" : ""}₩{exitData.secondExit.expectedProfit.toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
 
-                    <div>
-                        <span className="text-sm text-muted-foreground">전략 설명</span>
-                        <p className="mt-1">{exitData.secondExit.rationale}</p>
-                    </div>
+                            <div>
+                                <span className="text-sm text-muted-foreground">전략 설명</span>
+                                <p className="mt-1">{exitData.secondExit.rationale}</p>
+                            </div>
 
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">예상 보유 기간: {exitData.secondExit.timing}</span>
-                    </div>
+                            <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">예상 보유 기간: {exitData.secondExit.timing}</span>
+                            </div>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 
             {/* 종합 추천 */}
             <Card className="bg-muted/50">
                 <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-full bg-primary/10">
-                            <Target className="h-5 w-5 text-primary" />
+                    {isLoading ? (
+                        <div className="flex items-start gap-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                                <Skeleton className="h-5 w-24" />
+                                <Skeleton className="h-16 w-full" />
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="font-semibold mb-1">전략 추천</h4>
-                            <p className="text-muted-foreground">{exitData.recommendation}</p>
+                    ) : (
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-full bg-primary/10">
+                                <Target className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                                <h4 className="font-semibold mb-1">전략 추천</h4>
+                                <p className="text-muted-foreground">{exitData.recommendation}</p>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

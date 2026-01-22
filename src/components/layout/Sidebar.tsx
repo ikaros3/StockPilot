@@ -64,34 +64,47 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             setIsLoading(true);
             const portfolioList = await getUserPortfolios(user.uid);
 
-            // 각 포트폴리오의 통계 계산
-            const portfoliosWithStats = await Promise.all(
+            // 1단계: 기본 정보(이름, 종목 수)만 먼저 로드하여 렌더링 차단 해제
+            const initialPortfolios = await Promise.all(
                 portfolioList.map(async (portfolio) => {
-                    // 보유 종목 조회
                     const { getPortfolioHoldings } = await import("@/services/portfolio");
                     const holdings = await getPortfolioHoldings(portfolio.id);
-                    const holdingCount = holdings.length;
+                    return {
+                        ...portfolio,
+                        holdings, // 나중에 계산을 위해 저장
+                        holdingCount: holdings.length,
+                        profitRate: 0,
+                    };
+                })
+            );
 
-                    if (holdingCount === 0) {
-                        return {
-                            ...portfolio,
-                            holdingCount: 0,
-                            profitRate: 0,
-                        };
-                    }
+            // UI 먼저 표시
+            setPortfolios(initialPortfolios);
+            setIsLoading(false);
 
-                    // 현재가 조회 (apiQueue 사용)
-                    const { apiQueue } = await import("@/services/api-queue");
-                    const stockCodes = holdings.map(h => h.stockCode);
-                    const priceMap = await apiQueue.fetchPrices(stockCodes);
+            // 2단계: 가격 정보 비동기 로드 및 수익률 계산
+            try {
+                const { apiQueue } = await import("@/services/api-queue");
 
-                    // 수익률 계산
+                // 모든 포트폴리오의 모든 종목 코드 수집
+                const allStockCodes = new Set<string>();
+                initialPortfolios.forEach(p => {
+                    p.holdings.forEach(h => allStockCodes.add(h.stockCode));
+                });
+
+                if (allStockCodes.size === 0) return;
+
+                // 일괄 가격 조회
+                const priceMap = await apiQueue.fetchPrices(Array.from(allStockCodes));
+
+                // 수익률 재계산 후 업데이트
+                const updatedPortfolios = initialPortfolios.map(portfolio => {
                     let totalInvestment = 0;
                     let totalCurrentValue = 0;
 
-                    holdings.forEach(h => {
+                    portfolio.holdings.forEach(h => {
                         const priceData = priceMap.get(h.stockCode);
-                        const currentPrice = priceData ? priceData.currentPrice : h.purchasePrice; // 데이터 없으면 매수가로 가정 (수익률 0)
+                        const currentPrice = priceData ? priceData.currentPrice : h.purchasePrice;
 
                         totalInvestment += h.purchasePrice * h.quantity;
                         totalCurrentValue += currentPrice * h.quantity;
@@ -100,19 +113,22 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     const totalProfit = totalCurrentValue - totalInvestment;
                     const profitRate = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
 
+                    // holdings는 state에 불필요하므로 제거하거나 유지 (여기선 타입 정의상 유지)
                     return {
                         ...portfolio,
-                        holdingCount,
                         profitRate,
                     };
-                })
-            );
+                });
 
-            setPortfolios(portfoliosWithStats);
+                setPortfolios(updatedPortfolios);
+
+            } catch (priceError) {
+                console.error("[Sidebar] 가격 정보 로드 실패 (UI는 유지됨):", priceError);
+            }
+
         } catch (error) {
             console.error("[Sidebar] 포트폴리오 로드 실패:", error);
-        } finally {
-            setIsLoading(false);
+            setIsLoading(false); // 에러 시에도 로딩 해제
         }
     }, [user]); // Add user to dependency array
 

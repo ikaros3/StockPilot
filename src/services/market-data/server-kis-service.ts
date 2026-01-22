@@ -84,6 +84,12 @@ export class ServerKisService {
                 cache: 'no-store'
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[KIS Server] 토큰 발급 응답 오류 (${response.status}): ${errorText}`);
+                return "";
+            }
+
             const data = await response.json();
 
             if (data.access_token) {
