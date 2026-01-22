@@ -51,7 +51,7 @@ export default function WelcomePage() {
                     <div>
                         <CardTitle className="text-2xl font-bold">환영합니다!</CardTitle>
                         <CardDescription className="text-lg pt-2">
-                            회원가입이 완료되었습니다.
+                            StockPilot에 처음 오신 것을 환영합니다.
                         </CardDescription>
                     </div>
                 </CardHeader>
