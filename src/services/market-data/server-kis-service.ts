@@ -176,45 +176,60 @@ export class ServerKisService {
     /**
      * 배치 주가 정보 조회
      */
+    /**
+     * 배치 주가 정보 조회 (Rate Limit 준수)
+     */
     static async getPrices(symbols: string[]): Promise<Record<string, any>> {
         const results: Record<string, any> = {};
+        const BATCH_SIZE = 15; // 한 번에 실행할 병렬 요청 수 (KIS 제한 20건 안전 마진)
+        const CHUNK_DELAY = 100; // 배치 간 딜레이 (ms)
 
-        // 병렬 처리
-        await Promise.all(
-            symbols.map(async (symbol) => {
-                try {
-                    const data = await this.callApi(
-                        "/uapi/domestic-stock/v1/quotations/inquire-price",
-                        "FHKST01010100",
-                        {
-                            FID_COND_MRKT_DIV_CODE: "J",
-                            FID_INPUT_ISCD: symbol,
+        // 전체 심볼을 청크로 분할
+        for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+            const chunk = symbols.slice(i, i + BATCH_SIZE);
+
+            // 청크 내 병렬 처리
+            await Promise.all(
+                chunk.map(async (symbol) => {
+                    try {
+                        const data = await this.callApi(
+                            "/uapi/domestic-stock/v1/quotations/inquire-price",
+                            "FHKST01010100",
+                            {
+                                FID_COND_MRKT_DIV_CODE: "J",
+                                FID_INPUT_ISCD: symbol,
+                            }
+                        );
+
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const anyData = data as any;
+
+                        if (anyData?.output) {
+                            const o = anyData.output;
+                            results[symbol] = {
+                                stockCode: symbol,
+                                stockName: "",
+                                currentPrice: parseInt(o.stck_prpr, 10),
+                                changePrice: parseInt(o.prdy_vrss, 10),
+                                changeRate: parseFloat(o.prdy_ctrt),
+                                openPrice: parseInt(o.stck_oprc, 10),
+                                highPrice: parseInt(o.stck_hgpr, 10),
+                                lowPrice: parseInt(o.stck_lwpr, 10),
+                                volume: parseInt(o.acml_vol, 10),
+                            };
                         }
-                    );
-
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const anyData = data as any;
-
-                    if (anyData?.output) {
-                        const o = anyData.output;
-                        results[symbol] = {
-                            stockCode: symbol,
-                            stockName: "",
-                            currentPrice: parseInt(o.stck_prpr, 10),
-                            changePrice: parseInt(o.prdy_vrss, 10),
-                            changeRate: parseFloat(o.prdy_ctrt),
-                            openPrice: parseInt(o.stck_oprc, 10),
-                            highPrice: parseInt(o.stck_hgpr, 10),
-                            lowPrice: parseInt(o.stck_lwpr, 10),
-                            volume: parseInt(o.acml_vol, 10),
-                        };
+                    } catch (error) {
+                        console.error(`[KIS Service] Failed to fetch price for ${symbol}:`, error);
+                        // 개별 실패는 무시하고 성공한 것만 반환
                     }
-                } catch (error) {
-                    console.error(`[KIS Service] Failed to fetch price for ${symbol}:`, error);
-                    // 개별 실패는 무시하고 성공한 것만 반환
-                }
-            })
-        );
+                })
+            );
+
+            // 다음 배치가 있으면 딜레이 적용
+            if (i + BATCH_SIZE < symbols.length) {
+                await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY));
+            }
+        }
 
         return results;
     }

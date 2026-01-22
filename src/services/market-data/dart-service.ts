@@ -10,6 +10,8 @@
  * - 공시 정보 (정기공시, 주요사항공시 등)
  */
 
+import { stockMasterService } from "./stock-master-service";
+
 // DART API 기본 URL
 const DART_API_BASE_URL = "https://opendart.fss.or.kr/api";
 
@@ -166,22 +168,8 @@ export class DartService {
      * DART는 고유번호(corp_code)를 사용하므로 종목코드로 변환 필요
      */
     async getCorpCode(stockCode: string): Promise<string | null> {
-        // 실제 구현에서는 corp_code.xml 파일을 다운로드하여 매핑 테이블을 구축해야 함
-        // 여기서는 주요 종목에 대한 매핑만 제공
-        const corpCodeMap: Record<string, string> = {
-            "005930": "00126380", // 삼성전자
-            "000660": "00164779", // SK하이닉스
-            "035720": "00258801", // 카카오
-            "005380": "00164742", // 현대차
-            "035420": "00401731", // NAVER
-            "051910": "00145057", // LG화학
-            "006400": "00155286", // 삼성SDI
-            "207940": "00969459", // 삼성바이오로직스
-            "068270": "00375123", // 셀트리온
-            "105560": "00401735", // KB금융
-        };
-
-        return corpCodeMap[stockCode] || null;
+        // StockMasterService를 통해 조회
+        return stockMasterService.getCorpCode(stockCode);
     }
 
     /**
