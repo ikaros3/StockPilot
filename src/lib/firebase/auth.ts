@@ -28,20 +28,26 @@ const FIREBASE_NOT_CONFIGURED_ERROR = new Error(
 export async function handleRedirectResult() {
     const auth = getFirebaseAuth();
     if (!auth) {
+        console.error("[Auth] Firebase Auth not initialized");
         return { user: null, isNewUser: false, error: FIREBASE_NOT_CONFIGURED_ERROR };
     }
 
     try {
+        console.log("[Auth] Checking redirect result...");
         const result = await getRedirectResult(auth);
+
         if (!result) {
+            console.log("[Auth] No redirect result found.");
             return { user: null, isNewUser: false, error: null }; // 리다이렉트 결과 없음 (일반 진입)
         }
 
+        console.log("[Auth] Redirect result found:", result.user.uid);
         const additionalUserInfo = getAdditionalUserInfo(result);
         const isNewUser = additionalUserInfo?.isNewUser || false;
 
         return { user: result.user, isNewUser, error: null };
     } catch (error) {
+        console.error("[Auth] Redirect result error:", error);
         return { user: null, isNewUser: false, error: error as Error };
     }
 }
