@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { signInWithGoogle, signInWithKakao, signInWithEmail, signOut, deleteCurrentUser, sendVerificationEmail, handleRedirectResult } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
+import { getOrCreateUserProfile, isOnboardingCompleted, getUserProfile } from "@/lib/firebase/user";
 
 export default function LoginPage() {
     console.log("[LoginPage] Rendered");
@@ -115,8 +115,24 @@ export default function LoginPage() {
         }
 
         try {
-            await getOrCreateUserProfile(user);
-            const boarded = await isOnboardingCompleted(user.uid);
+            // 로그인 페이지에서는 '있는 유저'만 허용해야 함.
+            // getOrCreateUserProfile 대신 getUserProfile로 확인
+            const existingProfile = await getUserProfile(user.uid);
+
+            if (!existingProfile) {
+                // 프로필이 없다 = 회원가입한 적이 없다.
+                // 소셜 로그인으로 자동 생성된 Auth 유저는 삭제하고 가입 페이지로 안내
+                await deleteCurrentUser();
+                await signOut();
+                setError("가입되지 않은 계정입니다. 회원가입 후에 이용해주세요.");
+
+                // 잠시 후 회원가입 페이지로 이동 (UX 옵션)
+                // setTimeout(() => router.push("/signup"), 2000);
+                setIsLoading(false);
+                return;
+            }
+
+            const boarded = existingProfile.onboardingCompleted;
 
             addLog(`[LoginSuccess] Onboarding completed: ${boarded}`);
             if (!boarded) {

@@ -14,6 +14,11 @@ export interface UserProfile {
 /**
  * 사용자 프로필을 가져오거나, 없으면 새로 생성합니다.
  */
+// 그냥 가져오기 (없으면 null 반환)
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+    return await getDocument<UserProfile>("users", uid);
+}
+
 export async function getOrCreateUserProfile(user: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<UserProfile> {
     const existingProfile = await getDocument<UserProfile>("users", user.uid);
 
