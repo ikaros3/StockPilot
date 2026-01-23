@@ -13,6 +13,7 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 
 export default function LoginPage() {
+    console.log("[LoginPage] Rendered"); // 디버깅용
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");

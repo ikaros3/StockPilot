@@ -11,6 +11,9 @@ import {
     sendEmailVerification as firebaseSendEmailVerification,
     getAdditionalUserInfo,
     OAuthProvider,
+    setPersistence,
+    browserLocalPersistence,
+    inMemoryPersistence, // 에뮬레이터용
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "./config";
 import { useState, useEffect } from "react";
@@ -21,6 +24,21 @@ import { useState, useEffect } from "react";
 const FIREBASE_NOT_CONFIGURED_ERROR = new Error(
     "Firebase가 설정되지 않았습니다. 인증 기능을 사용하려면 Firebase 환경 변수를 설정하세요."
 );
+
+// Auth 초기화 및 Persistence 설정
+const initializeAuth = async () => {
+    const auth = getFirebaseAuth();
+    if (auth) {
+        try {
+            await setPersistence(auth, browserLocalPersistence);
+            console.log("[Auth] Persistence set to LOCAL");
+        } catch (err) {
+            console.error("[Auth] Failed to set persistence:", err);
+        }
+    }
+    return auth;
+};
+
 
 /**
  * 리다이렉트 결과 처리 (로그인 페이지 진입 시 호출)
@@ -56,17 +74,19 @@ export async function handleRedirectResult() {
  * Google 로그인 (Redirect)
  */
 export async function signInWithGoogle() {
-    const auth = getFirebaseAuth();
+    const auth = await initializeAuth();
     if (!auth) {
         return { error: FIREBASE_NOT_CONFIGURED_ERROR };
     }
 
     const provider = new GoogleAuthProvider();
     try {
+        console.log("[Auth] Starting Google Redirect Sign-in...");
         await signInWithRedirect(auth, provider);
         // 리다이렉트 되므로 반환값 없음
         return { error: null };
     } catch (error) {
+        console.error("[Auth] Google Sign-in error:", error);
         return { error: error as Error };
     }
 }
