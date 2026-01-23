@@ -80,6 +80,10 @@ export function usePortfolio(portfolioId: string | null) {
         mutateHoldings();
     };
 
+    // 디버깅 로그
+    // console.log(`[usePortfolio] ID: ${portfolioId}, Loading: ${isPortfolioLoading}, Error: ${!!portfolioError}`);
+    if (portfolioError) console.error("[usePortfolio] Error:", portfolioError);
+
     return {
         portfolio,
         holdings,

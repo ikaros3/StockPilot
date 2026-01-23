@@ -39,6 +39,8 @@ export default function PortfolioDetailPage() {
     const router = useRouter();
     const id = params?.id as string;
 
+    console.log("[PortfolioDetail] Mounted with ID:", id); // 디버깅 로그
+
     // 포트폴리오 데이터 훅 사용
     const {
         portfolio,
