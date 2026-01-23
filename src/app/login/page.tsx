@@ -13,7 +13,7 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted, getUserProfile } from "@/lib/firebase/user";
 
 export default function LoginPage() {
-    console.log("[LoginPage] Rendered");
+    // console.log("[LoginPage] Rendered");
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");

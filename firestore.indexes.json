@@ -11,15 +11,19 @@
                 {
                     "fieldPath": "createdAt",
                     "order": "DESCENDING"
+                },
+                {
+                    "fieldPath": "__name__",
+                    "order": "DESCENDING"
                 }
             ]
         },
         {
-            "collectionGroup": "portfolios",
+            "collectionGroup": "holdings",
             "queryScope": "COLLECTION",
             "fields": [
                 {
-                    "fieldPath": "userId",
+                    "fieldPath": "portfolioId",
                     "order": "ASCENDING"
                 },
                 {
