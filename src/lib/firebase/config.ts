@@ -17,7 +17,8 @@ export const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "tr
 // Firebase 설정 확인
 export const isFirebaseConfigured = !!(
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 );
 
 // Emulator 또는 실제 Firebase 사용 가능 여부
@@ -74,6 +75,13 @@ export function getFirebaseApp(): FirebaseApp | null {
             console.log("[Firebase] projectId:", firebaseConfig.projectId);
         } else {
             console.log("[Firebase] 프로덕션 모드로 초기화됨");
+            // 디버깅을 위해 설정 값 로깅 (일부 마스킹)
+            console.log("[Firebase] Config Check:", {
+                projectId: firebaseConfig.projectId,
+                authDomain: firebaseConfig.authDomain,
+                hasApiKey: !!firebaseConfig.apiKey,
+                apiKeyPreview: firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 4)}...` : "MISSING"
+            });
         }
     }
     return app;

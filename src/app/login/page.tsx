@@ -37,6 +37,15 @@ export default function LoginPage() {
         const checkAuth = async () => {
             try {
                 addLog("[CheckAuth] Start handling redirect result...");
+
+                if (auth) {
+                    const config = auth.app.options as any;
+                    addLog(`[Config] Host: ${window.location.hostname}`);
+                    addLog(`[Config] Protocol: ${window.location.protocol}`);
+                    addLog(`[Config] Eth Domain: ${config.authDomain || 'MISSING'}`);
+                    addLog(`[Config] API Key: ${config.apiKey ? 'Set' : 'MISSING'}`);
+                }
+
                 // 1. Redirect 결과 확인 (우선순위 높음 - isNewUser 정보 때문)
                 const result = await handleRedirectResult();
 
