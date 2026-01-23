@@ -7,9 +7,10 @@ import { PieChart, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signInWithGoogle, signInWithKakao, signInWithEmail, signOut, deleteCurrentUser, sendVerificationEmail, handleRedirectResult, getFirebaseAuth, onAuthStateChanged } from "@/lib/firebase/auth";
+import { signInWithGoogle, signInWithKakao, signInWithEmail, signOut, deleteCurrentUser, sendVerificationEmail, handleRedirectResult } from "@/lib/firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase/config";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
-import { User as FirebaseUser } from "firebase/auth";
 
 export default function LoginPage() {
     const router = useRouter();
