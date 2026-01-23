@@ -22,11 +22,10 @@ export default function LoginPage() {
     const [needsVerification, setNeedsVerification] = useState(false);
     const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
     const [emailSent, setEmailSent] = useState(false);
-    const [debugLogs, setDebugLogs] = useState<string[]>([]); // 디버그 로그
 
+    // 디버그 로그 제거
     const addLog = (msg: string) => {
         console.log(msg);
-        setDebugLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
     };
 
     // 리다이렉트 및 로그인 상태 통합 확인
@@ -249,11 +248,7 @@ export default function LoginPage() {
                     </CardContent>
                 </Card>
 
-                {/* 디버그 오버레이 */}
-                <div className="fixed bottom-0 left-0 right-0 h-40 bg-black/80 text-green-400 p-4 font-mono text-xs overflow-auto z-50 pointer-events-none opacity-80">
-                    <div className="font-bold border-b border-green-500 mb-2">DEBUG CONSOLE</div>
-                    {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
-                </div>
+
             </div>
         );
     }
@@ -392,11 +387,7 @@ export default function LoginPage() {
                 </CardFooter>
             </Card>
 
-            {/* 디버그 오버레이 */}
-            <div className="fixed bottom-0 left-0 right-0 h-40 bg-black/80 text-green-400 p-4 font-mono text-xs overflow-auto z-50 pointer-events-none opacity-80">
-                <div className="font-bold border-b border-green-500 mb-2">DEBUG CONSOLE</div>
-                {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
-            </div>
+
         </div>
     );
 }
