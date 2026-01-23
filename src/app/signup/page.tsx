@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PieChart, Mail, Lock, User, ArrowRight, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signUp, signInWithGoogle, signInWithKakao, sendVerificationEmail, signOut, signInWithEmail } from "@/lib/firebase/auth";
+import { signUp, signInWithGoogle, signInWithKakao, sendVerificationEmail, signOut, signInWithEmail, handleRedirectResult } from "@/lib/firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 
 export default function SignUpPage() {
@@ -16,7 +16,7 @@ export default function SignUpPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // 초기 로딩 상태 true
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -25,77 +25,65 @@ export default function SignUpPage() {
         return re.test(email);
     };
 
+    // 리다이렉트 결과 확인
+    useEffect(() => {
+        const checkRedirect = async () => {
+            try {
+                const result = await handleRedirectResult();
+
+                // 리다이렉트 결과가 없음 (일반 진입)
+                if (!result.user && !result.error) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (result.error) {
+                    setError("소셜 회원가입에 실패했습니다.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (result.user) {
+                    // 사용자 프로필 생성
+                    await getOrCreateUserProfile(result.user);
+
+                    // 이미 인증된 계정(소셜)이면 로그인 처리 -> 웰컴
+                    if (result.user.emailVerified) {
+                        router.push("/welcome");
+                        return;
+                    }
+
+                    // 미인증 시 (거의 없겠지만) 인증 메일 발송
+                    const emailResult = await sendVerificationEmail(result.user);
+                    if (emailResult.error) {
+                        console.error("인증 메일 발송 실패:", emailResult.error);
+                    }
+
+                    await signOut();
+                    setIsSuccess(true);
+                    setIsLoading(false);
+                }
+            } catch (err) {
+                console.error("Redirect check failed:", err);
+                setIsLoading(false);
+            }
+        };
+
+        checkRedirect();
+    }, [router]);
+
     const handleGoogleSignup = async () => {
         setIsLoading(true);
         setError(null);
-
-        const result = await signInWithGoogle();
-
-        if (result.error) {
-            setError("Google 회원가입에 실패했습니다. 다시 시도해주세요.");
-            setIsLoading(false);
-            return;
-        }
-
-        if (result.isNewUser && result.user) {
-            // 사용자 프로필 생성 (온보딩 상태 false로 초기화)
-            await getOrCreateUserProfile(result.user);
-
-            // 이미 인증된 계정(대부분의 소셜 로그인)이면 바로 로그인 처리 -> 웰컴 페이지로 이동
-            if (result.user.emailVerified) {
-                router.push("/welcome");
-                return;
-            }
-
-            // Google 가입이라도 인증되지 않은 경우에만 추후 인증 메일 발송 및 로그아웃 처리
-            const emailResult = await sendVerificationEmail(result.user);
-            if (emailResult.error) {
-                console.error("인증 메일 발송 실패:", emailResult.error);
-            }
-
-            await signOut();
-            setIsSuccess(true);
-            setIsLoading(false);
-        } else {
-            router.push("/");
-        }
+        await signInWithGoogle();
+        // 리다이렉트 됨
     };
 
     const handleKakaoSignup = async () => {
         setIsLoading(true);
         setError(null);
-
-        const result = await signInWithKakao();
-
-        if (result.error) {
-            console.error("Kakao signup error:", result.error);
-            setError("카카오 회원가입에 실패했습니다.");
-            setIsLoading(false);
-            return;
-        }
-
-        if (result.isNewUser && result.user) {
-            // 사용자 프로필 생성
-            await getOrCreateUserProfile(result.user);
-
-            // 이미 인증된 계정이면 바로 로그인 처리 -> 웰컴 페이지로 이동
-            if (result.user.emailVerified) {
-                router.push("/welcome");
-                return;
-            }
-
-            const emailResult = await sendVerificationEmail(result.user);
-            if (emailResult.error) {
-                console.error("인증 메일 발송 실패:", emailResult.error);
-            }
-
-            await signOut();
-            setIsSuccess(true);
-            setIsLoading(false);
-        } else {
-            // 이미 가입된 경우 로그인 처리됨 -> 메인으로
-            router.push("/");
-        }
+        await signInWithKakao();
+        // 리다이렉트 됨
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
