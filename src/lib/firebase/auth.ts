@@ -3,7 +3,8 @@ import {
     createUserWithEmailAndPassword,
     signOut as firebaseSignOut,
     GoogleAuthProvider,
-    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     onAuthStateChanged,
     User as FirebaseUser,
     updateProfile,
@@ -22,17 +23,20 @@ const FIREBASE_NOT_CONFIGURED_ERROR = new Error(
 );
 
 /**
- * Google 로그인
+ * 리다이렉트 결과 처리 (로그인 페이지 진입 시 호출)
  */
-export async function signInWithGoogle() {
+export async function handleRedirectResult() {
     const auth = getFirebaseAuth();
     if (!auth) {
         return { user: null, isNewUser: false, error: FIREBASE_NOT_CONFIGURED_ERROR };
     }
 
-    const provider = new GoogleAuthProvider();
     try {
-        const result = await signInWithPopup(auth, provider);
+        const result = await getRedirectResult(auth);
+        if (!result) {
+            return { user: null, isNewUser: false, error: null }; // 리다이렉트 결과 없음 (일반 진입)
+        }
+
         const additionalUserInfo = getAdditionalUserInfo(result);
         const isNewUser = additionalUserInfo?.isNewUser || false;
 
@@ -43,12 +47,31 @@ export async function signInWithGoogle() {
 }
 
 /**
- * Kakao 로그인 (OIDC)
+ * Google 로그인 (Redirect)
+ */
+export async function signInWithGoogle() {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+        return { error: FIREBASE_NOT_CONFIGURED_ERROR };
+    }
+
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithRedirect(auth, provider);
+        // 리다이렉트 되므로 반환값 없음
+        return { error: null };
+    } catch (error) {
+        return { error: error as Error };
+    }
+}
+
+/**
+ * Kakao 로그인 (Redirect)
  */
 export async function signInWithKakao() {
     const auth = getFirebaseAuth();
     if (!auth) {
-        return { user: null, isNewUser: false, error: FIREBASE_NOT_CONFIGURED_ERROR };
+        return { error: FIREBASE_NOT_CONFIGURED_ERROR };
     }
 
     // Firebase Console에서 'oidc.kakao'로 제공업체 설정 필요
@@ -57,13 +80,11 @@ export async function signInWithKakao() {
     provider.addScope('email');
 
     try {
-        const result = await signInWithPopup(auth, provider);
-        const additionalUserInfo = getAdditionalUserInfo(result);
-        const isNewUser = additionalUserInfo?.isNewUser || false;
-
-        return { user: result.user, isNewUser, error: null };
+        await signInWithRedirect(auth, provider);
+        // 리다이렉트 되므로 반환값 없음
+        return { error: null };
     } catch (error) {
-        return { user: null, isNewUser: false, error: error as Error };
+        return { error: error as Error };
     }
 }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PieChart, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signInWithGoogle, signInWithKakao, signInWithEmail, signOut, deleteCurrentUser, sendVerificationEmail } from "@/lib/firebase/auth";
+import { signInWithGoogle, signInWithKakao, signInWithEmail, signOut, deleteCurrentUser, sendVerificationEmail, handleRedirectResult } from "@/lib/firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 import { User as FirebaseUser } from "firebase/auth";
 
@@ -15,11 +15,70 @@ export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // 초기 로딩 상태 true (리다이렉트 결과 확인 위함)
     const [error, setError] = useState<string | null>(null);
     const [needsVerification, setNeedsVerification] = useState(false);
     const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
     const [emailSent, setEmailSent] = useState(false);
+
+    // 리다이렉트 결과 확인 (컴포넌트 마운트 시)
+    useEffect(() => {
+        const checkRedirect = async () => {
+            try {
+                const result = await handleRedirectResult();
+
+                // 리다이렉트 결과가 없으면 로딩 종료 (일반 접속)
+                if (!result.user && !result.error) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (result.error) {
+                    setError("로그인에 실패했습니다. 다시 시도해주세요.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 로그인 성공 처리
+                if (result.user) {
+                    // 회원가입 전 취소 (신규 유저인데 회원가입 페이지가 아닌 경우 등) - 여기서는 자동 가입으로 처리하거나 기존 로직 따름
+                    if (result.isNewUser) {
+                        await deleteCurrentUser();
+                        setError("회원가입이 필요합니다. 회원가입 페이지에서 먼저 가입해주세요.");
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    if (!result.user.emailVerified) {
+                        setNeedsVerification(true);
+                        setCurrentUser(result.user);
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // 온보딩 확인
+                    try {
+                        await getOrCreateUserProfile(result.user);
+                        const boarded = await isOnboardingCompleted(result.user.uid);
+
+                        if (!boarded) {
+                            router.push("/welcome");
+                        } else {
+                            router.push("/");
+                        }
+                    } catch (err) {
+                        console.error("Onboarding check failed:", err);
+                        router.push("/"); // 에러 시 안전하게 메인으로
+                    }
+                }
+            } catch (err) {
+                console.error("Redirect check failed:", err);
+                setIsLoading(false);
+            }
+        };
+
+        checkRedirect();
+    }, [router]);
 
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,7 +112,6 @@ export default function LoginPage() {
                     }
                 } catch (err) {
                     console.error("Onboarding check failed:", err);
-                    // 에러 발생해도 로그인은 허용하거나 처리? 안전하게 메인으로
                 }
             }
 
@@ -62,102 +120,19 @@ export default function LoginPage() {
     };
 
     const handleGoogleLogin = async () => {
-        setIsLoading(true);
+        setIsLoading(true); // 리다이렉트 시작 시 로딩 표시
         setError(null);
 
-        const result = await signInWithGoogle();
-
-        if (result.error) {
-            setError("Google 로그인에 실패했습니다. 다시 시도해주세요.");
-            setIsLoading(false);
-            return;
-        }
-
-        // 로그인 시도인데 새로운 사용자가 생성된 경우 -> 회원가입이 안 된 상태
-        if (result.isNewUser) {
-            await deleteCurrentUser(); // 사용자 삭제 (롤백)
-            setError("회원가입이 필요합니다. 회원가입 페이지에서 먼저 가입해주세요.");
-            setIsLoading(false);
-            return;
-        }
-
-        if (result.user && !result.user.emailVerified) {
-            setNeedsVerification(true);
-            setCurrentUser(result.user);
-            setIsLoading(false);
-            return;
-        }
-
-        // 온보딩 여부 확인
-        if (result.user) {
-            try {
-                // 기존 유저이므로 프로필이 있을 것임. 확인차 호출.
-                await getOrCreateUserProfile(result.user);
-                const boarded = await isOnboardingCompleted(result.user.uid);
-
-                if (!boarded) {
-                    router.push("/welcome");
-                    return;
-                }
-            } catch (err) {
-                console.error("Onboarding check failed:", err);
-            }
-        }
-
-        router.push("/");
+        await signInWithGoogle();
+        // 리다이렉트 되므로 이후 로직 없음
     };
 
     const handleKakaoLogin = async () => {
-        setIsLoading(true);
+        setIsLoading(true); // 리다이렉트 시작 시 로딩 표시
         setError(null);
 
-        const result = await signInWithKakao();
-
-        if (result.error) {
-            console.error("Kakao login error:", result.error);
-            // 에러 메시지 사용자 친화적으로 변환
-            let msg = "카카오 로그인에 실패했습니다.";
-            if (result.error.message.includes("auth/operation-not-allowed")) {
-                msg = "카카오 로그인이 활성화되지 않았습니다. 관리자에게 문의하세요.";
-            } else if (result.error.message.includes("auth/popup-closed-by-user")) {
-                msg = "로그인 창이 닫혔습니다.";
-            }
-            setError(msg);
-            setIsLoading(false);
-            return;
-        }
-
-        // 로그인 시도인데 새로운 사용자가 생성된 경우 -> 회원가입이 안 된 상태
-        if (result.isNewUser) {
-            await deleteCurrentUser(); // 사용자 삭제 (롤백)
-            setError("회원가입이 필요합니다. 회원가입 페이지에서 먼저 가입해주세요.");
-            setIsLoading(false);
-            return;
-        }
-
-        if (result.user && !result.user.emailVerified) {
-            setNeedsVerification(true);
-            setCurrentUser(result.user);
-            setIsLoading(false);
-            return;
-        }
-
-        // 온보딩 여부 확인
-        if (result.user) {
-            try {
-                await getOrCreateUserProfile(result.user);
-                const boarded = await isOnboardingCompleted(result.user.uid);
-
-                if (!boarded) {
-                    router.push("/welcome");
-                    return;
-                }
-            } catch (err) {
-                console.error("Onboarding check failed:", err);
-            }
-        }
-
-        router.push("/");
+        await signInWithKakao();
+        // 리다이렉트 되므로 이후 로직 없음
     };
 
     const handleResendVerification = async () => {
