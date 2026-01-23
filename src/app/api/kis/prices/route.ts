@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ServerKisService } from "@/services/market-data/server-kis-service";
 
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { symbols } = body;
+export const dynamic = 'force-dynamic'; // 에뮬레이터 이슈 방지: 강제 동적 렌더링 설정
 
-        if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+export async function GET(request: NextRequest) {
+    try {
+        const searchParams = request.nextUrl.searchParams;
+        const symbolsStr = searchParams.get('symbols');
+
+        if (!symbolsStr) {
             return NextResponse.json(
-                { error: "Symbols array is required" },
+                { error: "Symbols parameter is required" },
+                { status: 400 }
+            );
+        }
+
+        const symbols = symbolsStr.split(',').filter(s => s.trim().length > 0);
+
+        if (symbols.length === 0) {
+            return NextResponse.json(
+                { error: "Symbols list is empty" },
                 { status: 400 }
             );
         }
@@ -19,15 +30,18 @@ export async function POST(request: NextRequest) {
         try {
             // 병렬로 가격 정보 조회
             const results = await ServerKisService.getPrices(batchSymbols);
-            return NextResponse.json({ prices: results });
+
+            // 표준 Response 사용
+            return new Response(JSON.stringify({ prices: results }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
         } catch (innerError) {
             console.error("ServerKisService.getPrices Error:", innerError);
-            // 서비스 계층 에러 시에도 200 OK 반환 (빈 결과) - 재시도 루프 방지
             return NextResponse.json({ prices: {} });
         }
     } catch (error) {
         console.error("Batch Prices API Fatal Error:", error);
-        // 치명적 에러 시에도 200 OK 반환 (빈 결과) - 재시도 루프 방지
         return NextResponse.json(
             { prices: {}, error: "Internal Server Error (Handled)" },
             { status: 200 }

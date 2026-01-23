@@ -7,8 +7,8 @@ import { PieChart, Mail, Lock, User, ArrowRight, Loader2, Check } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signUp, signInWithGoogle, signInWithKakao, sendVerificationEmail, signOut } from "@/lib/firebase/auth";
-import { getOrCreateUserProfile } from "@/lib/firebase/user";
+import { signUp, signInWithGoogle, signInWithKakao, sendVerificationEmail, signOut, signInWithEmail } from "@/lib/firebase/auth";
+import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 
 export default function SignUpPage() {
     const router = useRouter();
@@ -122,8 +122,45 @@ export default function SignUpPage() {
         const result = await signUp(email, password, name);
 
         if (result.error) {
-            if (result.error.message.includes("email-already-in-use")) {
-                setError("이미 사용 중인 이메일입니다.");
+            if (result.error.message.includes("email-already-in-use") || result.error.message.includes("auth/email-already-in-use")) {
+                // 이미 존재하는 이메일이면, 입력한 비밀번호로 로그인을 시도해봅니다. (스마트 가입/복구)
+                const loginResult = await signInWithEmail(email, password);
+
+                if (loginResult.user) {
+                    // 로그인 성공! (본인이 맞음) -> 프로필 생성/확인 후 진행
+                    try {
+                        const user = loginResult.user;
+                        await getOrCreateUserProfile(user);
+
+                        // 이메일 인증이 이미 되어있다면? -> 바로 로그인 성공 처리
+                        if (user.emailVerified) {
+                            const boarded = await isOnboardingCompleted(user.uid);
+                            if (!boarded) {
+                                router.push("/welcome");
+                                return;
+                            }
+                            router.push("/");
+                            return;
+                        }
+
+                        // 미인증 상태라면 -> 원래 가입 흐름처럼 인증 메일 발송 안내
+                        const emailResult = await sendVerificationEmail(user);
+                        if (emailResult.error) {
+                            console.error("인증 메일 발송 실패:", emailResult.error);
+                        }
+                        await signOut();
+                        setIsSuccess(true);
+                        setIsLoading(false);
+                        return;
+
+                    } catch (err) {
+                        console.error("Auto-login/Recovery failed:", err);
+                        setError("로그인 처리 중 오류가 발생했습니다.");
+                    }
+                } else {
+                    // 로그인 실패 (비밀번호 틀림) -> 진짜 남의 계정이거나 비번 틀림
+                    setError("이미 사용 중인 이메일입니다.");
+                }
             } else {
                 console.error("Signup error:", result.error);
                 setError(`회원가입 실패: ${result.error.message} (${(result.error as any).code || 'unknown'})`);

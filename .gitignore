@@ -19,6 +19,7 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -29,10 +30,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# firebase
+.firebase
 firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # vercel
 .vercel
@@ -40,7 +49,15 @@ firebase-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-firebase-debug.log
 
-# firebase
-.firebase
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini

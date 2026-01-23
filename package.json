@@ -10,6 +10,7 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "firebase:emulators": "firebase emulators:start",
+    "emulators": "firebase emulators:start --only auth,firestore",
     "firebase:emulators:export": "firebase emulators:export ./firebase-data",
     "firebase:deploy": "firebase deploy"
   },

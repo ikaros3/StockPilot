@@ -25,6 +25,12 @@ interface AccessToken {
 const tokenCache = new Map<KisEnvironment, AccessToken>();
 
 export class ServerKisService {
+    // 토큰 갱신 중복 요청 방지를 위한 환경별 Promise Map
+    private static tokenRefreshPromises = new Map<KisEnvironment, Promise<string>>();
+
+    // 토큰 만료 전 갱신 마진 (5분)
+    private static readonly TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+
     public static getConfig() {
         const environment = (process.env.KIS_ENVIRONMENT || "vts") as KisEnvironment;
 
@@ -54,13 +60,16 @@ export class ServerKisService {
 
     /**
      * 액세스 토큰 발급 또는 조회
+     * - 동시 요청 시 기존 Promise 재사용
+     * - 토큰 만료 5분 전 자동 재발급
      */
     static async getAccessToken(): Promise<string> {
         const { environment: env, config } = this.getConfig();
 
-        // 캐시된 토큰 확인
+        // 캐시된 토큰 확인 (만료 5분 전까지 유효)
         const cachedToken = tokenCache.get(env);
-        if (cachedToken && new Date() < cachedToken.expiresAt) {
+        const now = Date.now();
+        if (cachedToken && now < cachedToken.expiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
             return cachedToken.accessToken;
         }
 
@@ -69,6 +78,29 @@ export class ServerKisService {
             return "";
         }
 
+        // 이미 토큰 발급 중이면 기존 Promise 재사용 (동시 요청 방지)
+        const existingPromise = this.tokenRefreshPromises.get(env);
+        if (existingPromise) {
+            console.log(`[KIS Server] ${env} 토큰 발급 대기 중 (기존 요청 재사용)...`);
+            return existingPromise;
+        }
+
+        // 새로운 토큰 발급 Promise 생성
+        const refreshPromise = this.fetchNewToken(env, config);
+        this.tokenRefreshPromises.set(env, refreshPromise);
+
+        try {
+            return await refreshPromise;
+        } finally {
+            // 완료 후 Promise 제거 (성공/실패 무관)
+            this.tokenRefreshPromises.delete(env);
+        }
+    }
+
+    /**
+     * 새로운 액세스 토큰 발급 (내부 사용)
+     */
+    private static async fetchNewToken(env: KisEnvironment, config: KisEnvConfig): Promise<string> {
         try {
             console.log(`[KIS Server] ${env} 환경 토큰 발급 시도...`);
             const response = await fetch(`${this.getBaseUrl(env)}/oauth2/tokenP`, {
@@ -174,63 +206,11 @@ export class ServerKisService {
         });
     }
     /**
-     * 배치 주가 정보 조회
-     */
-    /**
-     * 배치 주가 정보 조회 (Rate Limit 준수)
+     * 배치 주가 정보 조회 (중앙 집중형 Request Queue 사용)
      */
     static async getPrices(symbols: string[]): Promise<Record<string, any>> {
-        const results: Record<string, any> = {};
-        const BATCH_SIZE = 15; // 한 번에 실행할 병렬 요청 수 (KIS 제한 20건 안전 마진)
-        const CHUNK_DELAY = 100; // 배치 간 딜레이 (ms)
-
-        // 전체 심볼을 청크로 분할
-        for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-            const chunk = symbols.slice(i, i + BATCH_SIZE);
-
-            // 청크 내 병렬 처리
-            await Promise.all(
-                chunk.map(async (symbol) => {
-                    try {
-                        const data = await this.callApi(
-                            "/uapi/domestic-stock/v1/quotations/inquire-price",
-                            "FHKST01010100",
-                            {
-                                FID_COND_MRKT_DIV_CODE: "J",
-                                FID_INPUT_ISCD: symbol,
-                            }
-                        );
-
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyData = data as any;
-
-                        if (anyData?.output) {
-                            const o = anyData.output;
-                            results[symbol] = {
-                                stockCode: symbol,
-                                stockName: "",
-                                currentPrice: parseInt(o.stck_prpr, 10),
-                                changePrice: parseInt(o.prdy_vrss, 10),
-                                changeRate: parseFloat(o.prdy_ctrt),
-                                openPrice: parseInt(o.stck_oprc, 10),
-                                highPrice: parseInt(o.stck_hgpr, 10),
-                                lowPrice: parseInt(o.stck_lwpr, 10),
-                                volume: parseInt(o.acml_vol, 10),
-                            };
-                        }
-                    } catch (error) {
-                        console.error(`[KIS Service] Failed to fetch price for ${symbol}:`, error);
-                        // 개별 실패는 무시하고 성공한 것만 반환
-                    }
-                })
-            );
-
-            // 다음 배치가 있으면 딜레이 적용
-            if (i + BATCH_SIZE < symbols.length) {
-                await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY));
-            }
-        }
-
-        return results;
+        // 순환 참조 방지를 위해 동적 import
+        const { kisRequestQueue } = await import("./kis-request-queue");
+        return kisRequestQueue.getPrices(symbols);
     }
 }

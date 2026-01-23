@@ -112,10 +112,12 @@ class ApiQueue {
 
             try {
                 // 배치 API 호출
-                const response = await fetch('/api/kis/prices', {
-                    method: 'POST',
+                const queryParams = new URLSearchParams();
+                queryParams.set('symbols', symbols.join(','));
+
+                const response = await fetch(`/api/kis/prices?${queryParams.toString()}`, {
+                    method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ symbols })
                 });
 
                 const data = await response.json();
@@ -139,7 +141,7 @@ class ApiQueue {
                         item.resolve(priceData);
                     } else {
                         // 실패: 개별적으로 실패 처리 (null 반환)
-                        console.warn(`[ApiQueue] ${item.stockCode} 데이터 없음`);
+                        console.warn(`[ApiQueue] 데이터 누락: ${item.stockCode} (응답에 포함되지 않음)`);
                         item.resolve(null);
                     }
                 });
