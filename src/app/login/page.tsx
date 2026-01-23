@@ -13,128 +13,145 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getOrCreateUserProfile, isOnboardingCompleted } from "@/lib/firebase/user";
 
 export default function LoginPage() {
-    console.log("[LoginPage] Rendered"); // 디버깅용
+    console.log("[LoginPage] Rendered");
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [isLoading, setIsLoading] = useState(true); // 초기 로딩 상태 true (리다이렉트 결과 확인 위함)
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [needsVerification, setNeedsVerification] = useState(false);
     const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
     const [emailSent, setEmailSent] = useState(false);
+    const [debugLogs, setDebugLogs] = useState<string[]>([]); // 디버그 로그
 
-    // 리다이렉트 결과 확인 (컴포넌트 마운트 시)
+    const addLog = (msg: string) => {
+        console.log(msg);
+        setDebugLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    };
+
+    // 리다이렉트 및 로그인 상태 통합 확인
     useEffect(() => {
-        const checkRedirect = async () => {
+        let isMounted = true;
+        const auth = getFirebaseAuth();
+
+        const checkAuth = async () => {
             try {
+                addLog("[CheckAuth] Start handling redirect result...");
+                // 1. Redirect 결과 확인 (우선순위 높음 - isNewUser 정보 때문)
                 const result = await handleRedirectResult();
 
-                // 리다이렉트 결과가 없으면 로딩 종료 (일반 접속)
-                if (!result.user && !result.error) {
-                    setIsLoading(false);
+                if (result.user) {
+                    addLog(`[CheckAuth] Redirect Success! User: ${result.user.email}`);
+                    if (isMounted) await handleLoginSuccess(result.user, result.isNewUser);
                     return;
                 }
 
                 if (result.error) {
-                    setError("로그인에 실패했습니다. 다시 시도해주세요.");
-                    setIsLoading(false);
+                    addLog(`[CheckAuth] Redirect Error: ${result.error.message}`);
+                    if (isMounted) {
+                        setError("로그인 처리 중 오류가 발생했습니다.");
+                        setIsLoading(false);
+                    }
                     return;
                 }
 
-                // 로그인 성공 처리
-                if (result.user) {
-                    // 회원가입 전 취소 (신규 유저인데 회원가입 페이지가 아닌 경우 등) - 여기서는 자동 가입으로 처리하거나 기존 로직 따름
-                    if (result.isNewUser) {
-                        await deleteCurrentUser();
-                        setError("회원가입이 필요합니다. 회원가입 페이지에서 먼저 가입해주세요.");
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    if (!result.user.emailVerified) {
-                        setNeedsVerification(true);
-                        setCurrentUser(result.user);
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    // 온보딩 확인
-                    try {
-                        await getOrCreateUserProfile(result.user);
-                        const boarded = await isOnboardingCompleted(result.user.uid);
-
-                        if (!boarded) {
-                            router.push("/welcome");
-                        } else {
-                            router.push("/");
-                        }
-                    } catch (err) {
-                        console.error("Onboarding check failed:", err);
-                        router.push("/"); // 에러 시 안전하게 메인으로
-                    }
-                }
+                addLog("[CheckAuth] No redirect result found. Waiting for observer...");
             } catch (err) {
-                console.error("Redirect check failed:", err);
-                setIsLoading(false);
+                addLog(`[CheckAuth] Failed: ${err}`);
+                if (isMounted) setIsLoading(false);
             }
         };
 
-        checkRedirect();
+        checkAuth();
+
+        // Observer: 리다이렉트 감지가 실패했더라도, Auth 상태가 변하면 로그인 처리
+        if (auth) {
+            const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                if (user && isMounted) {
+                    addLog(`[Observer] User detected: ${user.email}`);
+                    await handleLoginSuccess(user, false);
+                } else if (isMounted) {
+                    addLog("[Observer] No user found.");
+                    // 일정 시간 후에도 유저 없으면 로딩 해제 (여기서는 즉시 해제해봄)
+                    setIsLoading(false);
+                }
+            });
+            return () => {
+                isMounted = false;
+                unsubscribe();
+            };
+        } else {
+            addLog("[CheckAuth] No Auth instance found.");
+            if (isMounted) setIsLoading(false);
+        }
+
+        return () => { isMounted = false; };
     }, [router]);
+
+    const handleLoginSuccess = async (user: FirebaseUser, isNewUser: boolean = false) => {
+        addLog(`[LoginSuccess] Processing user (New: ${isNewUser})`);
+
+        if (isNewUser) {
+            await deleteCurrentUser();
+            setError("회원가입이 필요합니다. 회원가입 페이지에서 먼저 가입해주세요.");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!user.emailVerified) {
+            setNeedsVerification(true);
+            setCurrentUser(user);
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            await getOrCreateUserProfile(user);
+            const boarded = await isOnboardingCompleted(user.uid);
+
+            addLog(`[LoginSuccess] Onboarding completed: ${boarded}`);
+            if (!boarded) {
+                router.push("/welcome");
+            } else {
+                router.push("/");
+            }
+        } catch (err) {
+            console.error("Onboarding check failed:", err);
+            router.push("/"); // 에러 시 안전하게 메인으로
+        }
+    };
 
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+        addLog("[EmailLogin] Attempting...");
 
         const result = await signInWithEmail(email, password);
 
         if (result.error) {
+            addLog(`[EmailLogin] Error: ${result.error.message}`);
             setError("이메일 또는 비밀번호가 올바르지 않습니다.");
             setIsLoading(false);
         } else {
-            // 이메일 인증 확인
-            if (result.user && !result.user.emailVerified) {
-                setNeedsVerification(true);
-                setCurrentUser(result.user);
-                setIsLoading(false);
-                return;
-            }
-
-            // 온보딩 여부 확인
             if (result.user) {
-                try {
-                    // 프로필 확인/생성
-                    await getOrCreateUserProfile(result.user);
-                    const boarded = await isOnboardingCompleted(result.user.uid);
-
-                    if (!boarded) {
-                        router.push("/welcome");
-                        return;
-                    }
-                } catch (err) {
-                    console.error("Onboarding check failed:", err);
-                }
+                await handleLoginSuccess(result.user, false);
             }
-
-            router.push("/");
         }
     };
 
     const handleGoogleLogin = async () => {
-        setIsLoading(true); // 리다이렉트 시작 시 로딩 표시
+        setIsLoading(true);
         setError(null);
-
+        addLog("[GoogleLogin] Starting...");
         await signInWithGoogle();
-        // 리다이렉트 되므로 이후 로직 없음
     };
 
     const handleKakaoLogin = async () => {
-        setIsLoading(true); // 리다이렉트 시작 시 로딩 표시
+        setIsLoading(true);
         setError(null);
-
+        addLog("[KakaoLogin] Starting...");
         await signInWithKakao();
-        // 리다이렉트 되므로 이후 로직 없음
     };
 
     const handleResendVerification = async () => {
@@ -206,6 +223,12 @@ export default function LoginPage() {
                         </Button>
                     </CardContent>
                 </Card>
+
+                {/* 디버그 오버레이 */}
+                <div className="fixed bottom-0 left-0 right-0 h-40 bg-black/80 text-green-400 p-4 font-mono text-xs overflow-auto z-50 pointer-events-none opacity-80">
+                    <div className="font-bold border-b border-green-500 mb-2">DEBUG CONSOLE</div>
+                    {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
+                </div>
             </div>
         );
     }
@@ -343,6 +366,12 @@ export default function LoginPage() {
                     </div>
                 </CardFooter>
             </Card>
+
+            {/* 디버그 오버레이 */}
+            <div className="fixed bottom-0 left-0 right-0 h-40 bg-black/80 text-green-400 p-4 font-mono text-xs overflow-auto z-50 pointer-events-none opacity-80">
+                <div className="font-bold border-b border-green-500 mb-2">DEBUG CONSOLE</div>
+                {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
+            </div>
         </div>
     );
 }
