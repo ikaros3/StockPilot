@@ -32,8 +32,8 @@ export function StockChart({ data, height = 400, purchasePrice }: StockChartProp
                 textColor: '#333',
             },
             grid: {
-                vertLines: { color: 'rgba(197, 203, 206, 0.3)' },
-                horzLines: { color: 'rgba(197, 203, 206, 0.3)' },
+                vertLines: { visible: false },
+                horzLines: { visible: false },
             },
             crosshair: {
                 mode: CrosshairMode.Normal,

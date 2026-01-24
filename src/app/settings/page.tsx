@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { User, Bell, Shield, Palette, Save, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [settings, setSettings] = useState({
         displayName: "사용자",
@@ -22,8 +25,11 @@ export default function SettingsPage() {
             reportUpdates: true,
             weeklyDigest: false,
         },
-        theme: "system" as "light" | "dark" | "system",
     });
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -164,16 +170,16 @@ export default function SettingsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex gap-2">
-                            {(["light", "dark", "system"] as const).map((theme) => (
+                            {mounted && (["light", "dark", "system"] as const).map((t) => (
                                 <Button
-                                    key={theme}
-                                    variant={settings.theme === theme ? "default" : "outline"}
-                                    onClick={() => setSettings({ ...settings, theme })}
+                                    key={t}
+                                    variant={theme === t ? "default" : "outline"}
+                                    onClick={() => setTheme(t)}
                                     className="flex-1"
                                 >
-                                    {theme === "light" && "☀️ 라이트"}
-                                    {theme === "dark" && "🌙 다크"}
-                                    {theme === "system" && "💻 시스템"}
+                                    {t === "light" && "☀️ 라이트"}
+                                    {t === "dark" && "🌙 다크"}
+                                    {t === "system" && "💻 시스템"}
                                 </Button>
                             ))}
                         </div>
