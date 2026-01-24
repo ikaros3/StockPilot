@@ -3,12 +3,18 @@
         "rules": "firestore.rules",
         "indexes": "firestore.indexes.json"
     },
-    "functions": {
-        "source": ".",
-        "region": "asia-northeast3"
-    },
+    "functions": [
+        {
+            "source": ".",
+            "codebase": "default",
+            "region": "asia-northeast3"
+        }
+    ],
     "hosting": {
         "source": ".",
+        "frameworksBackend": {
+            "region": "asia-northeast3"
+        },
         "ignore": [
             "firebase.json",
             "**/.*",
