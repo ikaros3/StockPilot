@@ -106,12 +106,12 @@ export function useStockData(stockCode: string) {
 /**
  * 일별 시세 훅 (apiQueue 사용)
  */
-export function useDailyPrices(stockCode: string) {
+export function useDailyPrices(stockCode: string, period: string = "D") {
     // 가격은 apiQueue를 통해 가져옴
     const { price, isLoading: priceLoading } = useStockPrice(stockCode);
 
     const { data, error, isLoading } = useSWR(
-        stockCode ? `/api/stock?stockCode=${stockCode}&type=daily` : null,
+        stockCode ? `/api/stock?stockCode=${stockCode}&type=daily&period=${period}` : null,
         fetcher,
         {
             refreshInterval: 0,
@@ -226,5 +226,26 @@ export function useNews(stockCode: string) {
         news: data?.news,
         isLoading,
         isError: error,
+    };
+}
+
+/**
+ * 투자자 동향 훅
+ */
+export function useInvestorTrends(stockCode: string) {
+    const { data, error, isLoading, mutate } = useSWR(
+        stockCode ? `/api/stock?stockCode=${stockCode}&type=investor` : null,
+        fetcher,
+        {
+            refreshInterval: 0,
+            revalidateOnFocus: false,
+        }
+    );
+
+    return {
+        investors: data?.investors,
+        isLoading,
+        isError: error,
+        refresh: mutate
     };
 }

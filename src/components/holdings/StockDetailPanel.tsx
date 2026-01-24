@@ -8,7 +8,8 @@ import { TrendingUp, TrendingDown, X, ExternalLink } from "lucide-react";
 import { StockChart } from "../charts/StockChart";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useStockPrice, useDailyPrices } from "@/hooks/useStockData";
+import { useStockPrice, useDailyPrices, useInvestorTrends } from "@/hooks/useStockData";
+import { useState } from "react";
 
 interface StockDetailPanelProps {
     stockCode: string;
@@ -32,8 +33,10 @@ function formatCurrency(num: number): string {
 }
 
 export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose }: StockDetailPanelProps) {
+    const [period, setPeriod] = useState("D");
     const { price, isLoading: priceLoading } = useStockPrice(stockCode);
-    const { dailyPrices, isLoading: dailyLoading } = useDailyPrices(stockCode);
+    const { dailyPrices, isLoading: dailyLoading } = useDailyPrices(stockCode, period);
+    const { investors, isLoading: investorLoading } = useInvestorTrends(stockCode);
 
     const isLoading = priceLoading;
     const currentPrice = price?.currentPrice;
@@ -49,59 +52,43 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
     return (
         <Card className="mt-4 border-primary/20 bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">{stockName}</CardTitle>
-                    <Badge variant="outline">{stockCode}</Badge>
-                    {isDataMissing && (
-                        <Badge variant="secondary" className="ml-2">데이터 없음</Badge>
-                    )}
-                </div>
-                <Button variant="ghost" size="icon" onClick={onClose}>
-                    <X className="h-4 w-4" />
-                </Button>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* 시세 정보 (왼쪽 - 좁게) */}
-                    <div className="space-y-3 lg:col-span-1 order-2 lg:order-1 flex flex-col pb-4">
-
-                        {/* 상세 분석 버튼 위치 이동 */}
-                        <div>
-                            <Link href={`/stocks/${stockCode}`}>
-                                <Button variant="outline" size="sm" className="w-full gap-2 h-8 text-xs">
-                                    <ExternalLink className="h-3 w-3" />
-                                    상세 분석
-                                </Button>
-                            </Link>
+                    {/* 시세 정보 (좁게) */}
+                    <div className="p-4 flex flex-col border-r border-primary/10 lg:col-span-1 order-2 lg:order-1 bg-card/10">
+                        {/* 상단: 종목명, 코드, 버튼 */}
+                        <div className="flex flex-row lg:flex-col justify-between items-start gap-2 mb-4">
+                            <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold truncate">{stockName}</CardTitle>
+                                    {isDataMissing && (
+                                        <Badge variant="secondary" className="text-[10px] h-4">데이터 없음</Badge>
+                                    )}
+                                </div>
+                                <span className="text-xs text-muted-foreground font-mono">{stockCode}</span>
+                            </div>
                         </div>
 
-                        {/* 정보 표시 영역 (세로 스택) */}
-                        <div className="space-y-2">
+                        {/* 중단: 시세 데이터 (그리드 활용) */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-x-6 gap-y-4">
                             {/* 현재가 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">현재가</p>
-                                <div className="flex items-center gap-2">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">현재가</p>
+                                <div className="flex items-baseline gap-1.5">
                                     {isLoading ? (
-                                        <Skeleton className="h-8 w-32" />
+                                        <Skeleton className="h-6 w-24" />
                                     ) : (
                                         <>
-                                            <span className={cn("text-xl font-bold", isDataMissing && "text-muted-foreground")}>
-                                                {currentPrice ? formatCurrency(currentPrice) : "N/A"}
+                                            <span className={cn("text-lg font-bold tracking-tight", isDataMissing && "text-muted-foreground")}>
+                                                {currentPrice ? formatNumber(currentPrice) : "N/A"}
                                             </span>
                                             {!isDataMissing && (
                                                 <div className={cn(
-                                                    "flex items-center gap-1",
+                                                    "flex items-center gap-0.5 text-[10px] font-bold",
                                                     isProfit ? "text-red-500" : "text-blue-500"
                                                 )}>
-                                                    {isProfit ? (
-                                                        <TrendingUp className="h-3 w-3" />
-                                                    ) : (
-                                                        <TrendingDown className="h-3 w-3" />
-                                                    )}
-                                                    <span className="text-xs font-medium">
-                                                        {isProfit ? "+" : ""}{changeRate.toFixed(2)}%
-                                                    </span>
+                                                    <span>{isProfit ? "▲" : "▼"}</span>
+                                                    <span>{changeRate.toFixed(2)}%</span>
                                                 </div>
                                             )}
                                         </>
@@ -111,65 +98,116 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                             {/* 전일대비 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">전일대비</p>
+                                <p className="text-[10px] text-muted-foreground mb-0.5">전일대비</p>
                                 {isLoading ? (
-                                    <Skeleton className="h-6 w-24" />
+                                    <Skeleton className="h-5 w-20" />
                                 ) : (
                                     <p className={cn(
-                                        "font-medium text-base",
+                                        "font-bold text-sm",
                                         isDataMissing ? "text-muted-foreground" : (isProfit ? "text-red-500" : "text-blue-500")
                                     )}>
-                                        {isDataMissing ? "-" : (isProfit ? "+" : "") + formatCurrency(changePrice)}
+                                        {isDataMissing ? "-" : (isProfit ? "+" : "") + formatNumber(changePrice)}
                                     </p>
                                 )}
                             </div>
 
                             {/* 거래량 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">거래량</p>
+                                <p className="text-[10px] text-muted-foreground mb-0.5">거래량</p>
                                 {isLoading ? (
-                                    <Skeleton className="h-6 w-24" />
+                                    <Skeleton className="h-5 w-20" />
                                 ) : (
-                                    <p className="font-medium text-base">
-                                        {isDataMissing ? "-" : formatNumber(volume) + "주"}
+                                    <p className="font-bold text-sm">
+                                        {isDataMissing ? "-" : formatNumber(volume)}
                                     </p>
                                 )}
                             </div>
 
-                            {/* 고가 */}
-                            <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">고가</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-6 w-24" />
-                                ) : (
-                                    <p className={cn("font-medium text-base", !isDataMissing && "text-red-500")}>
-                                        {isDataMissing ? "-" : formatCurrency(high)}
+                            {/* 고가 / 저가 (함께 묶음) */}
+                            <div className="flex gap-4">
+                                <div>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">고가</p>
+                                    <p className={cn("font-bold text-sm", !isDataMissing && "text-red-500")}>
+                                        {isDataMissing ? "-" : formatNumber(high)}
                                     </p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">저가</p>
+                                    <p className={cn("font-bold text-sm", !isDataMissing && "text-blue-500")}>
+                                        {isDataMissing ? "-" : formatNumber(low)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 하단: 투자자 동향 (그리드 활용) */}
+                        <div className="mt-6 pt-4 border-t border-primary/10">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs font-bold flex items-center gap-1.5">
+                                    <TrendingUp className="h-3 w-3 text-primary/60" />
+                                    투자자 동향
+                                </p>
+                                {investors?.date && (
+                                    <span className="text-[9px] text-muted-foreground bg-muted/30 px-1 rounded">
+                                        {investors.date.slice(4, 6)}.{investors.date.slice(6, 8)}
+                                    </span>
                                 )}
                             </div>
 
-                            {/* 저가 */}
-                            <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">저가</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-6 w-24" />
-                                ) : (
-                                    <p className={cn("font-medium text-base", !isDataMissing && "text-blue-500")}>
-                                        {isDataMissing ? "-" : formatCurrency(low)}
-                                    </p>
-                                )}
-                            </div>
+                            {investorLoading ? (
+                                <div className="grid grid-cols-3 lg:grid-cols-1 gap-2">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                </div>
+                            ) : investors ? (
+                                <div className="grid grid-cols-3 lg:grid-cols-1 gap-3">
+                                    {[
+                                        { label: "개인", value: investors.private },
+                                        { label: "외국인", value: investors.foreign },
+                                        { label: "기관", value: investors.institutional }
+                                    ].map((item) => {
+                                        const val = item.value ?? 0;
+                                        const absVal = Math.abs(val);
+                                        const formatted = absVal >= 10000
+                                            ? `${Math.round(val / 10000).toLocaleString()}만`
+                                            : `${val.toLocaleString()}`;
+                                        const displayWithSign = val > 0 ? `+${formatted}` : formatted;
+
+                                        return (
+                                            <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/5 p-2 lg:p-0 rounded-sm">
+                                                <span className="text-muted-foreground text-[10px] font-medium">{item.label}</span>
+                                                <span className={cn(
+                                                    "font-bold text-xs",
+                                                    val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : ""
+                                                )}>
+                                                    {displayWithSign}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground text-center py-2">데이터 없음</p>
+                            )}
                         </div>
                     </div>
 
                     {/* 차트 영역 (오른쪽 - 넓게) */}
-                    <div className="lg:col-span-3 min-h-[400px] order-1 lg:order-2">
+                    <div className="lg:col-span-3 order-1 lg:order-2 bg-background/10">
                         {dailyLoading ? (
                             <Skeleton className="h-[400px] w-full" />
                         ) : dailyPrices && dailyPrices.length > 0 ? (
-                            <StockChart data={dailyPrices} height={400} purchasePrice={purchasePrice} />
+                            <StockChart
+                                stockCode={stockCode}
+                                data={dailyPrices}
+                                height={400}
+                                purchasePrice={purchasePrice}
+                                period={period}
+                                onPeriodChange={setPeriod}
+                            />
                         ) : (
-                            <div className="h-[400px] flex items-center justify-center bg-muted/20 rounded-lg">
+                            <div className="h-[400px] flex items-center justify-center">
                                 <p className="text-muted-foreground text-sm">차트 데이터 없음</p>
                             </div>
                         )}
