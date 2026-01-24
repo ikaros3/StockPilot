@@ -1,4 +1,5 @@
 import { kisRateLimiter } from "@/lib/rate-limiter";
+import { adminDb } from "@/lib/firebase/admin"; // Firestore Admin SDK 추가
 
 // KIS API 기본 URL
 const KIS_API_BASE_URL = {
@@ -6,23 +7,24 @@ const KIS_API_BASE_URL = {
     vts: "https://openapivts.koreainvestment.com:29443", // 모의투자
 };
 
-type KisEnvironment = "prod" | "vts";
+export type KisEnvironment = "prod" | "vts";
 
-interface KisEnvConfig {
+export interface KisEnvConfig {
     appKey: string;
     appSecret: string;
     accountNumber: string;
 }
 
-interface AccessToken {
+export interface AccessToken {
     accessToken: string;
     tokenType: string;
     expiresIn: number;
     expiresAt: Date;
 }
 
-// 서버 메모리에 토큰 캐싱 (주의: 서버리스 환경에서는 인스턴스마다 다를 수 있음)
-const tokenCache = new Map<KisEnvironment, AccessToken>();
+// 서버 메모리에 토큰 캐싱 (Cloud Run에서는 Firestore로 대체)
+// 하지만 빈번한 Firestore 읽기를 줄이기 위해 메모리 캐시도 병행 사용 (Short TTL)
+const memoryTokenCache = new Map<KisEnvironment, AccessToken>();
 
 export class ServerKisService {
     // 토큰 갱신 중복 요청 방지를 위한 환경별 Promise Map
@@ -60,17 +62,45 @@ export class ServerKisService {
 
     /**
      * 액세스 토큰 발급 또는 조회
-     * - 동시 요청 시 기존 Promise 재사용
-     * - 토큰 만료 5분 전 자동 재발급
+     * - Firestore를 우선 확인하여 서버 재시작 시에도 토큰 유지
+     * - 메모리 캐시 병행 사용
      */
     static async getAccessToken(): Promise<string> {
         const { environment: env, config } = this.getConfig();
-
-        // 캐시된 토큰 확인 (만료 5분 전까지 유효)
-        const cachedToken = tokenCache.get(env);
         const now = Date.now();
-        if (cachedToken && now < cachedToken.expiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
-            return cachedToken.accessToken;
+
+        // 1. 메모리 캐시 확인 (가장 빠름)
+        const memToken = memoryTokenCache.get(env);
+        if (memToken && now < memToken.expiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
+            return memToken.accessToken;
+        }
+
+        // 2. Firestore 확인 (영속성)
+        const docId = `kis_token_${env}`;
+        const docRef = adminDb.collection('system_metadata').doc(docId);
+
+        try {
+            const doc = await docRef.get();
+            if (doc.exists) {
+                const data = doc.data();
+                // Firestore Timestamp를 Date로 변환
+                const expiresAt = data?.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data?.expiresAt);
+
+                if (expiresAt && now < expiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
+                    const token: AccessToken = {
+                        accessToken: data?.accessToken,
+                        tokenType: data?.tokenType,
+                        expiresIn: data?.expiresIn,
+                        expiresAt: expiresAt
+                    };
+                    // 메모리 캐시 업데이트
+                    memoryTokenCache.set(env, token);
+                    return token.accessToken;
+                }
+            }
+        } catch (error) {
+            console.error(`[KIS Server] Firestore 토큰 조회 실패:`, error);
+            // Firestore 실패 시에도 신규 발급 시도
         }
 
         if (!config.appKey || !config.appSecret) {
@@ -78,7 +108,7 @@ export class ServerKisService {
             return "";
         }
 
-        // 이미 토큰 발급 중이면 기존 Promise 재사용 (동시 요청 방지)
+        // 3. 토큰 재발급 (동시 요청 방지)
         const existingPromise = this.tokenRefreshPromises.get(env);
         if (existingPromise) {
             console.log(`[KIS Server] ${env} 토큰 발급 대기 중 (기존 요청 재사용)...`);
@@ -98,11 +128,11 @@ export class ServerKisService {
     }
 
     /**
-     * 새로운 액세스 토큰 발급 (내부 사용)
+     * 새로운 액세스 토큰 발급 및 Firestore 저장
      */
     private static async fetchNewToken(env: KisEnvironment, config: KisEnvConfig): Promise<string> {
         try {
-            console.log(`[KIS Server] ${env} 환경 토큰 발급 시도...`);
+            console.log(`[KIS Server] ${env} 환경 토큰 신규 발급 시도...`);
             const response = await fetch(`${this.getBaseUrl(env)}/oauth2/tokenP`, {
                 method: "POST",
                 headers: {
@@ -125,14 +155,25 @@ export class ServerKisService {
             const data = await response.json();
 
             if (data.access_token) {
+                const expiresAt = new Date(Date.now() + data.expires_in * 1000);
                 const token: AccessToken = {
                     accessToken: data.access_token,
                     tokenType: data.token_type,
                     expiresIn: data.expires_in,
-                    expiresAt: new Date(Date.now() + data.expires_in * 1000),
+                    expiresAt: expiresAt,
                 };
-                tokenCache.set(env, token);
-                console.log(`[KIS Server] ${env} 토큰 발급 성공`);
+
+                // Firestore 저장
+                const docId = `kis_token_${env}`;
+                await adminDb.collection('system_metadata').doc(docId).set({
+                    ...token,
+                    updatedAt: new Date()
+                });
+
+                // 메모리 저장
+                memoryTokenCache.set(env, token);
+
+                console.log(`[KIS Server] ${env} 토큰 발급 및 Firestore 저장 성공`);
                 return token.accessToken;
             }
 
@@ -205,6 +246,7 @@ export class ServerKisService {
             return data;
         });
     }
+
     /**
      * 배치 주가 정보 조회 (중앙 집중형 Request Queue 사용)
      */
