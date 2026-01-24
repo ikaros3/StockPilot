@@ -15,7 +15,9 @@ function initAdmin() {
     if (app) return app;
 
     // Use require to bypass bundler mangling
-    const { initializeApp, getApps, cert, getApp } = require('firebase-admin/app');
+    // We construct the path dynamically to prevent Turbopack/Webpack from rewriting the module name
+    const PKG = 'firebase-admin';
+    const { initializeApp, getApps, cert, getApp } = require(`${PKG}/app`);
 
     if (!getApps().length) {
         if (FIREBASE_SERVICE_ACCOUNT) {
@@ -52,7 +54,8 @@ function initAdmin() {
 export function getAdminDb() {
     if (!db) {
         const adminApp = initAdmin();
-        const { getFirestore } = require('firebase-admin/firestore');
+        const PKG = 'firebase-admin';
+        const { getFirestore } = require(`${PKG}/firestore`);
         db = getFirestore(adminApp);
     }
     return db;
