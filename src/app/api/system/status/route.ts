@@ -54,6 +54,17 @@ export async function GET() {
         };
     }
 
+    // 3. Region Check via Metadata Server (Cloud Run specific)
+    let regionMetadata = 'Unknown';
+    try {
+        const metaRes = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/zone', {
+            headers: { 'Metadata-Flavor': 'Google' }
+        });
+        if (metaRes.ok) regionMetadata = await metaRes.text();
+    } catch (e) {
+        // Not running on GCP or metadata server not reachable
+    }
+
     return NextResponse.json({
         timestamp: new Date().toISOString(),
         environment: environment,
@@ -64,7 +75,10 @@ export async function GET() {
         },
         serverInfo: {
             nodeEnv: process.env.NODE_ENV,
-            publicIp: ipInfo
+            publicIp: ipInfo,
+            serviceName: process.env.K_SERVICE,
+            revision: process.env.K_REVISION,
+            regionMetadata: regionMetadata
         },
         connectionDebug: directTestResult
     });

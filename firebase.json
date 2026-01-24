@@ -13,6 +13,15 @@
     ],
     "hosting": {
         "source": ".",
+        "rewrites": [
+            {
+                "source": "**",
+                "run": {
+                    "serviceId": "ssrstockpilottrading",
+                    "region": "asia-northeast3"
+                }
+            }
+        ],
         "frameworksBackend": {
             "region": "asia-northeast3"
         },
