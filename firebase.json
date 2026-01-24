@@ -3,6 +3,13 @@
         "rules": "firestore.rules",
         "indexes": "firestore.indexes.json"
     },
+    "functions": [
+        {
+            "source": ".",
+            "codebase": "default",
+            "region": "asia-northeast3"
+        }
+    ],
     "hosting": {
         "source": ".",
         "frameworksBackend": {
