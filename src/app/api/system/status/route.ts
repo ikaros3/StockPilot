@@ -68,13 +68,13 @@ export async function GET() {
     // 3. Firestore Connection Test
     let firestoreDebug = null;
     try {
-        const { adminDb } = await import("@/lib/firebase/admin");
+        const { getAdminDb } = await import("@/lib/firebase/admin");
+        const adminDb = getAdminDb(); // 여기서 초기화 에러가 나면 catch로 잡힘
         const testDoc = await adminDb.collection('system_metadata').doc('kis_token_prod').get();
         firestoreDebug = {
             status: "Connected",
             exists: testDoc.exists,
-            // @ts-ignore - app property exists at runtime in admin sdk
-            projectId: adminDb.app?.options?.projectId || "Unknown"
+            projectId: (adminDb as any).blockSettings?.projectId || "Check Logs"
         };
     } catch (e: any) {
         firestoreDebug = {
