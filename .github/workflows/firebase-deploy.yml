@@ -72,19 +72,39 @@ jobs:
       
       # 1. .env 파일 생성 (환경 변수 누락 방지 핵심)
       - name: Create .env file
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          KIS_ENVIRONMENT: ${{ secrets.KIS_ENVIRONMENT }}
+          KIS_PROD_APP_KEY: ${{ secrets.KIS_PROD_APP_KEY }}
+          KIS_PROD_APP_SECRET: ${{ secrets.KIS_PROD_APP_SECRET }}
+          KIS_PROD_ACCOUNT_NUMBER: ${{ secrets.KIS_PROD_ACCOUNT_NUMBER }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
-          echo "NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}" >> .env
-          echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}" >> .env
-          echo "KIS_ENVIRONMENT=${{ secrets.KIS_ENVIRONMENT }}" >> .env
-          echo "KIS_PROD_APP_KEY=${{ secrets.KIS_PROD_APP_KEY }}" >> .env
-          echo "KIS_PROD_APP_SECRET=${{ secrets.KIS_PROD_APP_SECRET }}" >> .env
-          echo "KIS_PROD_ACCOUNT_NUMBER=${{ secrets.KIS_PROD_ACCOUNT_NUMBER }}" >> .env
-          echo "DART_API_KEY=${{ secrets.DART_API_KEY }}" >> .env
+          node -e "
+            const fs = require('fs');
+            const env = process.env;
+            const content = [
+              \`NEXT_PUBLIC_FIREBASE_API_KEY=\${env.NEXT_PUBLIC_FIREBASE_API_KEY}\`,
+              \`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=\${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}\`,
+              \`NEXT_PUBLIC_FIREBASE_PROJECT_ID=\${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}\`,
+              \`NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=\${env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}\`,
+              \`NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=\${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}\`,
+              \`NEXT_PUBLIC_FIREBASE_APP_ID=\${env.NEXT_PUBLIC_FIREBASE_APP_ID}\`,
+              \`NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=\${env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}\`,
+              \`KIS_ENVIRONMENT=\${env.KIS_ENVIRONMENT}\`,
+              \`KIS_PROD_APP_KEY=\${env.KIS_PROD_APP_KEY}\`,
+              \`KIS_PROD_APP_SECRET=\${env.KIS_PROD_APP_SECRET}\`,
+              \`KIS_PROD_ACCOUNT_NUMBER=\${env.KIS_PROD_ACCOUNT_NUMBER}\`,
+              \`DART_API_KEY=\${env.DART_API_KEY}\`
+            ].join('\n');
+            fs.writeFileSync('.env', content);
+          "
       - name: Build
         run: npm run build
       - name: Install Firebase CLI
