@@ -71,10 +71,10 @@ export async function GET() {
         timestamp: new Date().toISOString(),
         environment: environment,
         config: {
-            appKeyVal: mask(config.appKey),
-            appSecretLength: appSecret.length, // 길이 확인
-            appSecretPreview: appSecret.length > 5 ? `${appSecret.substring(0, 3)}...${appSecret.substring(appSecret.length - 3)}` : 'Too Short', // 앞뒤 확인
-            accountNo: mask(config.accountNumber)
+            appKeyVal: config.appKey.length > 5 ? `${config.appKey.trim().substring(0, 3)}...${config.appKey.trim().substring(config.appKey.trim().length - 3)}` : 'Too Short',
+            appSecretLength: appSecret.trim().length, // 길이 확인
+            appSecretPreview: appSecret.trim().length > 5 ? `${appSecret.trim().substring(0, 3)}...${appSecret.trim().substring(appSecret.trim().length - 3)}` : 'Too Short', // 앞뒤 확인
+            accountNo: mask(config.accountNumber.trim()) // Apply .trim() here
         },
         serverInfo: {
             nodeEnv: process.env.NODE_ENV,
