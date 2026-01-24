@@ -34,7 +34,10 @@
         "rewrites": [
             {
                 "source": "**",
-                "function": "ssrstockpilottrading"
+                "run": {
+                    "serviceId": "ssrstockpilottrading",
+                    "region": "asia-northeast3"
+                }
             }
         ]
     },
