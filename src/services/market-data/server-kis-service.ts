@@ -77,9 +77,9 @@ export class ServerKisService {
 
         // 2. Firestore 확인 (영속성)
         const docId = `kis_token_${env}`;
-        const docRef = adminDb.collection('system_metadata').doc(docId);
 
         try {
+            const docRef = getAdminDb().collection('system_metadata').doc(docId);
             const doc = await docRef.get();
             if (doc.exists) {
                 const data = doc.data();
