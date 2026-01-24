@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['firebase-admin'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('firebase-admin');
+    }
+    return config;
+  },
   async headers() {
     const securityHeaders = [
       {
