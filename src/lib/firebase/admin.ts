@@ -1,14 +1,21 @@
-import { initializeApp, getApps, cert, getApp, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { createRequire } from 'module';
+// const require = createRequire(import.meta.url); // Cloud Run 환경에서 import.meta.url 사용 시 주의 필요할 수 있음. 
+// 안전하게 require 그대로 사용 시도하거나, 동적 import 사용.
+// 하지만 동기 함수 유지를 위해 require가 필요함.
+
+const require = createRequire(import.meta.url);
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-let app: App | undefined;
-let db: Firestore | undefined;
+let app: any;
+let db: any;
 
 function initAdmin() {
     if (app) return app;
+
+    // Use require to bypass bundler mangling
+    const { initializeApp, getApps, cert, getApp } = require('firebase-admin/app');
 
     if (!getApps().length) {
         if (FIREBASE_SERVICE_ACCOUNT) {
@@ -42,9 +49,10 @@ function initAdmin() {
     return app;
 }
 
-export function getAdminDb(): Firestore {
+export function getAdminDb() {
     if (!db) {
         const adminApp = initAdmin();
+        const { getFirestore } = require('firebase-admin/firestore');
         db = getFirestore(adminApp);
     }
     return db;
@@ -53,6 +61,6 @@ export function getAdminDb(): Firestore {
 // 하위 호환성을 위해 유지하되, 사용 시 주의
 export const adminDb = {
     collection: (path: string) => getAdminDb().collection(path),
-    // 필요한 다른 메서드가 있다면 프록시로 추가하거나, 호출 측에서 getAdminDb()를 쓰도록 변경 권장
-} as unknown as Firestore; // 임시 타입 캐스팅 (권장하지 않음, 호출부 수정 예정)
+} as any;
+
 
