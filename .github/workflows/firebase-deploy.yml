@@ -93,8 +93,27 @@ jobs:
       - name: Create Service Account Key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
 
+      - name: Pre-create Seoul Region Service
+        run: |
+          # gcloud 인증 및 설정
+          gcloud auth activate-service-account --key-file=service-account.json
+          gcloud config set project stockpilot-trading
+          
+          # 1. 미국 리전의 잘못된 서비스 삭제
+          gcloud run services delete ssrstockpilottrading --region=us-central1 --platform=managed --quiet || true
+          
+          # 2. 서울 리전에 서비스 선점 (알박기)
+          # 이미 존재하면 패스, 없으면 생성. 오류 무시(이미 존재 시)
+          echo "Creating placeholder service in asia-northeast3..."
+          gcloud run deploy ssrstockpilottrading \
+            --image=us-docker.pkg.dev/cloudrun/container/hello \
+            --region=asia-northeast3 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --quiet || true
+
       - name: Deploy to Firebase
-        run: firebase deploy --force --project stockpilot-trading
+        run: firebase deploy --force --project stockpilot-trading --only hosting,functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: service-account.json
           FIREBASE_CLI_EXPERIMENTS: webframeworks
