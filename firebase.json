@@ -30,15 +30,6 @@
                     }
                 ]
             }
-        ],
-        "rewrites": [
-            {
-                "source": "**",
-                "run": {
-                    "serviceId": "ssrstockpilottrading",
-                    "region": "asia-northeast3"
-                }
-            }
         ]
     },
     "emulators": {
