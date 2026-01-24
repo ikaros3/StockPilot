@@ -1,5 +1,5 @@
 import { kisRateLimiter } from "@/lib/rate-limiter";
-import { adminDb } from "@/lib/firebase/admin"; // Firestore Admin SDK 추가
+import { getAdminDb } from "@/lib/firebase/admin";
 
 // KIS API 기본 URL
 const KIS_API_BASE_URL = {
@@ -164,11 +164,15 @@ export class ServerKisService {
                 };
 
                 // Firestore 저장
-                const docId = `kis_token_${env}`;
-                await adminDb.collection('system_metadata').doc(docId).set({
-                    ...token,
-                    updatedAt: new Date()
-                });
+                try {
+                    const docId = `kis_token_${env}`;
+                    await getAdminDb().collection('system_metadata').doc(docId).set({
+                        ...token,
+                        updatedAt: new Date()
+                    });
+                } catch (e) {
+                    console.error('[KIS Server] Firestore 토큰 저장 실패:', e);
+                }
 
                 // 메모리 저장
                 memoryTokenCache.set(env, token);
