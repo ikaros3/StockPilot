@@ -1,16 +1,13 @@
 import type { NextConfig } from "next";
 
-
-const nextConfig = {
+const nextConfig: NextConfig = {
   serverExternalPackages: ['firebase-admin'],
-  experimental: {
-    turbopack: {
-      rules: {
-        // Configure rules here if needed, empty to silence error
-      }
+  // Next.js 15+ / 16 Turbopack specific config
+  turbopack: {
+    rules: {
     }
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (isServer) {
       config.externals.push('firebase-admin');
     }
