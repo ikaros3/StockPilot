@@ -9,7 +9,7 @@ export async function GET() {
     // Masking helper
     const mask = (str: string) => str ? `${str.substring(0, 4)}...${str.substring(str.length - 4)}` : '(NOT SET)';
 
-    // IP / Region check (Optional, might be slow)
+    // 1. IP / Region check
     let ipInfo = null;
     try {
         const ipRes = await fetch('https://api.ipify.org?format=json');
@@ -20,15 +20,38 @@ export async function GET() {
         ipInfo = { error: 'Failed to fetch IP' };
     }
 
-    // Attempt to get token (Test Connection)
-    let connectionTest = "NOT_ATTEMPTED";
-    let tokenError = null;
+    // 2. Direct Token Request Test (Bypass Service Class for detailed error debug)
+    let directTestResult = null;
+    let baseUrl = environment === "prod"
+        ? "https://openapi.koreainvestment.com:9443"
+        : "https://openapivts.koreainvestment.com:29443";
+
     try {
-        const token = await ServerKisService.getAccessToken();
-        connectionTest = token ? "SUCCESS" : "FAILED_TO_GET_TOKEN";
+        const startTime = Date.now();
+        const response = await fetch(`${baseUrl}/oauth2/tokenP`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                grant_type: "client_credentials",
+                appkey: config.appKey,
+                appsecret: config.appSecret,
+            }),
+            cache: 'no-store'
+        });
+
+        const text = await response.text();
+        directTestResult = {
+            status: response.status,
+            statusText: response.statusText,
+            duration: Date.now() - startTime,
+            responseBodyPreview: text.substring(0, 500), // Show first 500 chars
+            isSuccess: response.ok
+        };
     } catch (e: any) {
-        connectionTest = "ERROR";
-        tokenError = e.message;
+        directTestResult = {
+            error: e.message,
+            stack: e.stack
+        };
     }
 
     return NextResponse.json({
@@ -36,17 +59,13 @@ export async function GET() {
         environment: environment,
         config: {
             appKeyVal: mask(config.appKey),
-            appSecretVal: !!config.appSecret, // Don't even mask secret, just boolean
+            appSecretVal: !!config.appSecret,
             accountNo: mask(config.accountNumber)
         },
         serverInfo: {
             nodeEnv: process.env.NODE_ENV,
-            regionGuess: Intl.DateTimeFormat().resolvedOptions().timeZone,
             publicIp: ipInfo
         },
-        connectionTest: {
-            status: connectionTest,
-            error: tokenError
-        }
+        connectionDebug: directTestResult
     });
 }
