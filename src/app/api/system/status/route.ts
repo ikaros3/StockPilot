@@ -65,22 +65,17 @@ export async function GET() {
         // Not running on GCP or metadata server not reachable
     }
 
-    const appSecret = config.appSecret || '';
-
     return NextResponse.json({
         timestamp: new Date().toISOString(),
         environment: environment,
         config: {
-            appKeyVal: config.appKey.length > 5 ? `${config.appKey.trim().substring(0, 3)}...${config.appKey.trim().substring(config.appKey.trim().length - 3)}` : 'Too Short',
-            appSecretLength: appSecret.trim().length, // 길이 확인
-            appSecretPreview: appSecret.trim().length > 5 ? `${appSecret.trim().substring(0, 3)}...${appSecret.trim().substring(appSecret.trim().length - 3)}` : 'Too Short', // 앞뒤 확인
-            accountNo: mask(config.accountNumber.trim()) // Apply .trim() here
+            appKeyVal: mask(config.appKey),
+            appSecretVal: !!config.appSecret,
+            accountNo: mask(config.accountNumber)
         },
         serverInfo: {
             nodeEnv: process.env.NODE_ENV,
             publicIp: ipInfo,
-            serviceName: process.env.K_SERVICE,
-            revision: process.env.K_REVISION,
             regionMetadata: regionMetadata
         },
         connectionDebug: directTestResult

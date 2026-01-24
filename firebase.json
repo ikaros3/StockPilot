@@ -3,25 +3,8 @@
         "rules": "firestore.rules",
         "indexes": "firestore.indexes.json"
     },
-    "functions": [
-        {
-            "source": ".",
-            "codebase": "default",
-            "region": "asia-northeast3",
-            "runtime": "nodejs20"
-        }
-    ],
     "hosting": {
         "source": ".",
-        "rewrites": [
-            {
-                "source": "**",
-                "run": {
-                    "serviceId": "ssrstockpilottrading",
-                    "region": "asia-northeast3"
-                }
-            }
-        ],
         "frameworksBackend": {
             "region": "asia-northeast3"
         },

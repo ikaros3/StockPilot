@@ -114,15 +114,8 @@ jobs:
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
 
       - name: Deploy to Firebase
-        run: |
-          # Firebase Functions 인식 에러 방지용 가짜 파일 생성
-          npm install firebase-functions
-          echo "const { setGlobalOptions } = require('firebase-functions/v2');" > index.js
-          echo "setGlobalOptions({ region: 'asia-northeast3' });" >> index.js
-          echo "exports.dummy = require('firebase-functions/v2/https').onRequest((req, res) => { res.send('dummy'); });" >> index.js
-          
-          # 배포
-          firebase deploy --force --project stockpilot-trading --only hosting,functions
+        # 전체 배포 (Hosting, Functions, Firestore) - Web Frameworks가 알아서 처리
+        run: firebase deploy --force --project stockpilot-trading
         env:
           GOOGLE_APPLICATION_CREDENTIALS: service-account.json
           FIREBASE_CLI_EXPERIMENTS: webframeworks
