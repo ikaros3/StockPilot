@@ -65,6 +65,25 @@ export async function GET() {
         // Not running on GCP or metadata server not reachable
     }
 
+    // 3. Firestore Connection Test
+    let firestoreDebug = null;
+    try {
+        const { adminDb } = await import("@/lib/firebase/admin");
+        const testDoc = await adminDb.collection('system_metadata').doc('kis_token_prod').get();
+        firestoreDebug = {
+            status: "Connected",
+            exists: testDoc.exists,
+            // @ts-ignore - app property exists at runtime in admin sdk
+            projectId: adminDb.app?.options?.projectId || "Unknown"
+        };
+    } catch (e: any) {
+        firestoreDebug = {
+            status: "Error",
+            message: e.message,
+            stack: e.stack
+        };
+    }
+
     return NextResponse.json({
         timestamp: new Date().toISOString(),
         environment: environment,
@@ -78,6 +97,7 @@ export async function GET() {
             publicIp: ipInfo,
             regionMetadata: regionMetadata
         },
+        firestoreDebug: firestoreDebug,
         connectionDebug: directTestResult
     });
 }
