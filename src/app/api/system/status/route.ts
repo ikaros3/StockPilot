@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
-import { ServerKisService } from "@/services/market-data/server-kis-service";
+// ServerKisService is imported dynamically to prevent load-time crashes
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    let ServerKisService: any;
+    try {
+        const module = await import("@/services/market-data/server-kis-service");
+        ServerKisService = module.ServerKisService;
+    } catch (e: any) {
+        return NextResponse.json({
+            error: "Failed to load ServerKisService module",
+            message: e.message,
+            stack: e.stack
+        }, { status: 500 });
+    }
+
     const { environment, config } = ServerKisService.getConfig();
 
     // Masking helper
