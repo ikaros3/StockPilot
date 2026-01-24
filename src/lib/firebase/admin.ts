@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 // 현재 config.ts는 firebase/app 등을 쓰므로 admin 환경에서 import 시 문제될 수 있음.
 // 따라서 안전하게 환경변수를 직접 읽되, 키 이름은 통일.
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '';
+const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 
 // Cloud Run 환경에서는 서비스 계정 없이 기본 자격 증명 사용
 // 로컬 환경에서는 개발 편의를 위해 환경 변수에 GOOGLE_APPLICATION_CREDENTIALS 설정 권장
@@ -18,17 +18,26 @@ if (!getApps().length) {
     if (FIREBASE_SERVICE_ACCOUNT) {
         try {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+            const pId = serviceAccount.project_id || PROJECT_ID;
             initializeApp({
                 credential: cert(serviceAccount),
-                projectId: serviceAccount.project_id || PROJECT_ID
+                projectId: pId
             });
         } catch (error) {
             console.error('Firebase Service Account parsing error:', error);
-            initializeApp({ projectId: PROJECT_ID }); // Fallback with explicit projectId
+            if (PROJECT_ID) {
+                initializeApp({ projectId: PROJECT_ID });
+            } else {
+                initializeApp();
+            }
         }
     } else {
-        // 로컬/Cloud Run 환경 자동 감지 시에도 projectId 명시 권장
-        initializeApp({ projectId: PROJECT_ID });
+        // 로컬/Cloud Run 환경 자동 감지 시에도 projectId 명시 권장하지만, 없으면 자동 감지 시도
+        if (PROJECT_ID) {
+            initializeApp({ projectId: PROJECT_ID });
+        } else {
+            initializeApp();
+        }
     }
 }
 
