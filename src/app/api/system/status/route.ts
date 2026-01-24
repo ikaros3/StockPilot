@@ -65,12 +65,15 @@ export async function GET() {
         // Not running on GCP or metadata server not reachable
     }
 
+    const appSecret = config.appSecret || '';
+
     return NextResponse.json({
         timestamp: new Date().toISOString(),
         environment: environment,
         config: {
             appKeyVal: mask(config.appKey),
-            appSecretVal: !!config.appSecret,
+            appSecretLength: appSecret.length, // 길이 확인
+            appSecretPreview: appSecret.length > 5 ? `${appSecret.substring(0, 3)}...${appSecret.substring(appSecret.length - 3)}` : 'Too Short', // 앞뒤 확인
             accountNo: mask(config.accountNumber)
         },
         serverInfo: {
