@@ -1,45 +1,59 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 
+// Environment variables
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-let db: Firestore | null = null;
+let db: admin.firestore.Firestore | null = null;
 
-function initAdmin(): App {
-    const apps = getApps();
-    if (apps.length > 0) return apps[0];
+/**
+ * Firebase Admin SDK를 초기화하고 인스턴스를 반환합니다.
+ */
+function initAdmin(): admin.app.App {
+    const apps = admin.apps;
+    if (apps.length > 0) return apps[0]!;
 
-    if (FIREBASE_SERVICE_ACCOUNT) {
-        try {
+    try {
+        if (FIREBASE_SERVICE_ACCOUNT) {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-            const pId = serviceAccount.project_id || PROJECT_ID;
-            return initializeApp({
-                credential: cert(serviceAccount),
-                projectId: pId
+            return admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: serviceAccount.project_id || PROJECT_ID
             });
-        } catch (error) {
-            console.error('Firebase Service Account parsing error:', error);
-            if (PROJECT_ID) {
-                return initializeApp({ projectId: PROJECT_ID });
-            }
-            return initializeApp();
         }
-    } else {
+
         // Cloud Run / Local Fallback
         if (PROJECT_ID) {
-            return initializeApp({ projectId: PROJECT_ID });
+            return admin.initializeApp({ projectId: PROJECT_ID });
         }
-        return initializeApp();
+
+        return admin.initializeApp();
+    } catch (error: any) {
+        // 이미 초기화된 경우 재사용
+        if (error.code === 'app/duplicate-app') {
+            return admin.app();
+        }
+        console.error('Firebase Admin Initialization Error:', error);
+        throw error;
     }
 }
 
-export function getAdminDb(): Firestore {
-    if (!db) {
+/**
+ * Firestore DB 인스턴스를 반환합니다.
+ */
+export function getAdminDb(): admin.firestore.Firestore {
+    if (db) return db;
+
+    try {
         const adminApp = initAdmin();
-        db = getFirestore(adminApp);
+        db = admin.firestore(adminApp);
+        return db;
+    } catch (error) {
+        console.error('Failed to get Firestore DB:', error);
+        // DB 연결 실패 시 에러가 전체 서비스를 멈추지 않도록 처리하는 것이 중요하나, 
+        // 여기서는 상위에서 호출 시 에러 처리가 되도록 함.
+        throw error;
     }
-    return db;
 }
 
 // 하위 호환성을 위해 유지하되, 사용 시 주의

@@ -7,12 +7,6 @@ const nextConfig: NextConfig = {
     rules: {
     }
   },
-  webpack: (config: any, { isServer }: { isServer: boolean }) => {
-    if (isServer) {
-      config.externals.push('firebase-admin');
-    }
-    return config;
-  },
   async headers() {
     const securityHeaders = [
       {
