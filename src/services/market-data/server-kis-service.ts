@@ -33,6 +33,10 @@ export class ServerKisService {
     // 토큰 만료 전 갱신 마진 (5분)
     private static readonly TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
+    // 무분별한 토큰 발급 시도(및 문자 발생) 방지를 위한 쿨다운 (1분)
+    private static lastIssuanceAttempt = 0;
+    private static readonly ISSUANCE_COOLDOWN_MS = 60 * 1000;
+
     public static getConfig() {
         const environment = (process.env.KIS_ENVIRONMENT || "vts") as KisEnvironment;
 
@@ -197,6 +201,14 @@ export class ServerKisService {
      */
     private static async fetchNewToken(env: KisEnvironment, config: KisEnvConfig): Promise<string> {
         if (!config.appKey || !config.appSecret) return "";
+
+        // 쿨다운 체크: 1분 이내에 이미 발급을 시도했다면 정지 (문자 폭탄 방지)
+        const now = Date.now();
+        if (now - this.lastIssuanceAttempt < this.ISSUANCE_COOLDOWN_MS) {
+            console.warn(`[KIS Server] ${env} 토큰 발급 쿨다운 중... (문자 발생 방지를 위해 1분당 1회 제한)`);
+            return "";
+        }
+        this.lastIssuanceAttempt = now;
 
         try {
             const response = await fetch(`${this.getBaseUrl(env)}/oauth2/tokenP`, {

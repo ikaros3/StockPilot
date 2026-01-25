@@ -1,18 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['firebase-admin'],
-  // Next.js 15+ / 16 Turbopack specific config
-  turbopack: {
-    rules: {
-    }
-  },
-  webpack: (config: any, { isServer }: { isServer: boolean }) => {
-    if (isServer) {
-      config.externals.push('firebase-admin');
-    }
-    return config;
-  },
+  // Cloud Run(GCP) 및 Firebase Hosting Frameworks 최적화 빌드 모드
+  output: 'standalone',
+
+  // Turbopack/Webpack의 서브패키지 해싱 오류를 방지하기 위해 
+  // 루트 패키지와 주요 서브경로를 모두 외부화 목록에 명시합니다. (정석적인 다중 레이어 보안)
+  serverExternalPackages: [
+    'firebase-admin',
+    'firebase-admin/app',
+    'firebase-admin/firestore',
+    'firebase-admin/auth'
+  ],
+
   async headers() {
     const securityHeaders = [
       {
