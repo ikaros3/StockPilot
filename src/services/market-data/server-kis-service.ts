@@ -64,6 +64,7 @@ export class ServerKisService {
      * 액세스 토큰 발급 또는 조회
      * - Firestore를 우선 확인하여 서버 재시작 시에도 토큰 유지
      * - 메모리 캐시 병행 사용
+     * - 다중 프로세스 환경에서도 중복 발급을 방지하기 위한 Distributed Lock 패턴 적용
      */
     static async getAccessToken(): Promise<string> {
         const { environment: env, config } = this.getConfig();
@@ -77,13 +78,13 @@ export class ServerKisService {
 
         // 2. Firestore 확인 (영속성)
         const docId = `kis_token_${env}`;
+        const db = getAdminDb();
 
         try {
-            const docRef = getAdminDb().collection('system_metadata').doc(docId);
+            const docRef = db.collection('system_metadata').doc(docId);
             const doc = await docRef.get();
             if (doc.exists) {
                 const data = doc.data();
-                // Firestore Timestamp를 Date로 변환
                 const expiresAt = data?.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data?.expiresAt);
 
                 if (expiresAt && now < expiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
@@ -96,33 +97,84 @@ export class ServerKisService {
                     // 메모리 캐시 업데이트
                     memoryTokenCache.set(env, token);
                     return token.accessToken;
+                } else {
+                    console.log(`[KIS Server] ${env} Firestore 토큰 만료됨 (만료예정: ${expiresAt?.toLocaleString()})`);
                 }
+            } else {
+                console.log(`[KIS Server] ${env} Firestore 토큰 정보 없음`);
             }
         } catch (error) {
-            console.error(`[KIS Server] Firestore 토큰 조회 실패:`, error);
-            // Firestore 실패 시에도 신규 발급 시도
-        }
-
-        if (!config.appKey || !config.appSecret) {
-            console.error(`[KIS Server] ${env} 환경 API 키가 설정되지 않았습니다.`);
-            return "";
+            console.error(`[KIS Server] ${env} Firestore 토큰 조회 실패:`, error);
         }
 
         // 3. 토큰 재발급 (동시 요청 방지)
+        // 같은 프로세스(Worker) 내에서의 중복 요청 방지
         const existingPromise = this.tokenRefreshPromises.get(env);
         if (existingPromise) {
-            console.log(`[KIS Server] ${env} 토큰 발급 대기 중 (기존 요청 재사용)...`);
+            console.log(`[KIS Server] ${env} 토큰 발급 대기 중 (인-메모리 큐 재사용)...`);
             return existingPromise;
         }
 
-        // 새로운 토큰 발급 Promise 생성
-        const refreshPromise = this.fetchNewToken(env, config);
+        // 다른 프로세스(다중 워커) 간의 중복 요청 방지 (Firestore Distributed Lock)
+        const lockDocId = `kis_token_lock_${env}`;
+        const lockRef = db.collection('system_metadata').doc(lockDocId);
+
+        const refreshPromise = (async () => {
+            try {
+                // 락 획득 시도 (또는 기존 락 확인)
+                const lockDoc = await lockRef.get();
+                if (lockDoc.exists) {
+                    const lockData = lockDoc.data();
+                    const lockTime = lockData?.timestamp?.toDate ? lockData.timestamp.toDate().getTime() : lockData?.timestamp;
+
+                    // 30초 이내의 락이 있으면 다른 프로세스가 작업 중인 것으로 판단
+                    if (lockTime && (now - lockTime < 30000)) {
+                        console.log(`[KIS Server] ${env} 다른 프로세스에서 토큰 발급 중... (락 감지)`);
+
+                        // 최대 5초 대기하며 Firestore 확인
+                        for (let i = 0; i < 5; i++) {
+                            await new Promise(r => setTimeout(r, 1000));
+                            const checkDoc = await db.collection('system_metadata').doc(docId).get();
+                            if (checkDoc.exists) {
+                                const checkData = checkDoc.data();
+                                const checkExpiresAt = checkData?.expiresAt?.toDate ? checkData.expiresAt.toDate() : new Date(checkData?.expiresAt);
+                                if (checkExpiresAt && Date.now() < checkExpiresAt.getTime() - this.TOKEN_REFRESH_MARGIN_MS) {
+                                    console.log(`[KIS Server] ${env} 다른 프로세스가 발급한 토큰 확인 완료`);
+                                    return checkData?.accessToken;
+                                }
+                            }
+                        }
+                        console.log(`[KIS Server] ${env} 토큰 발급 대기 시간 초과, 직접 발급 시도`);
+                    }
+                }
+
+                // 락 설정
+                await lockRef.set({
+                    fetching: true,
+                    timestamp: new Date(),
+                    processId: process.pid
+                });
+
+                // 실제 토큰 발급
+                const token = await this.fetchNewToken(env, config);
+
+                // 락 해제
+                await lockRef.delete();
+
+                return token;
+
+            } catch (err) {
+                console.error(`[KIS Server] ${env} 토큰 갱신 프로세스 오류:`, err);
+                await lockRef.delete().catch(() => { });
+                return "";
+            }
+        })();
+
         this.tokenRefreshPromises.set(env, refreshPromise);
 
         try {
             return await refreshPromise;
         } finally {
-            // 완료 후 Promise 제거 (성공/실패 무관)
             this.tokenRefreshPromises.delete(env);
         }
     }
@@ -131,8 +183,13 @@ export class ServerKisService {
      * 새로운 액세스 토큰 발급 및 Firestore 저장
      */
     private static async fetchNewToken(env: KisEnvironment, config: KisEnvConfig): Promise<string> {
+        if (!config.appKey || !config.appSecret) {
+            console.error(`[KIS Server] ${env} 환경 API 키가 설정되지 않았습니다.`);
+            return "";
+        }
+
         try {
-            console.log(`[KIS Server] ${env} 환경 토큰 신규 발급 시도...`);
+            console.log(`[KIS Server] ${env} 환경 토큰 신규 발급 요청 (External API Call)...`);
             const response = await fetch(`${this.getBaseUrl(env)}/oauth2/tokenP`, {
                 method: "POST",
                 headers: {
@@ -155,6 +212,7 @@ export class ServerKisService {
             const data = await response.json();
 
             if (data.access_token) {
+                // KIS에서 주는 expires_in은 보통 초 단위 (86400 = 24h)
                 const expiresAt = new Date(Date.now() + data.expires_in * 1000);
                 const token: AccessToken = {
                     accessToken: data.access_token,
@@ -170,6 +228,7 @@ export class ServerKisService {
                         ...token,
                         updatedAt: new Date()
                     });
+                    console.log(`[KIS Server] ${env} 토큰 Firestore 저장 완료`);
                 } catch (e) {
                     console.error('[KIS Server] Firestore 토큰 저장 실패:', e);
                 }
@@ -177,14 +236,14 @@ export class ServerKisService {
                 // 메모리 저장
                 memoryTokenCache.set(env, token);
 
-                console.log(`[KIS Server] ${env} 토큰 발급 및 Firestore 저장 성공`);
+                console.log(`[KIS Server] ${env} 토큰 발급 성공`);
                 return token.accessToken;
             }
 
             console.error(`[KIS Server] 토큰 발급 실패: ${data.msg1}`);
             return "";
         } catch (error) {
-            console.error("[KIS Server] 토큰 발급 오류:", error);
+            console.error("[KIS Server] 토큰 발급 중 예외 발생:", error);
             return "";
         }
     }
