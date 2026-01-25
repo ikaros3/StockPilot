@@ -55,9 +55,9 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
             <CardContent className="pt-3">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {/* 시세 정보 (좁게) */}
-                    <div className="p-4 flex flex-col border-r border-primary/10 lg:col-span-1 order-2 lg:order-1 bg-card/10">
+                    <div className="p-3 flex flex-col border-r border-primary/10 lg:col-span-1 order-2 lg:order-1 bg-card/10">
                         {/* 상단: 종목명, 코드, 버튼 */}
-                        <div className="flex flex-row lg:flex-col justify-between items-start gap-2 mb-4">
+                        <div className="flex flex-row lg:flex-col justify-between items-start gap-1 mb-2.5">
                             <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-2">
                                     <CardTitle className="text-lg font-bold truncate">{stockName}</CardTitle>
@@ -70,10 +70,10 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                         </div>
 
                         {/* 중단: 시세 데이터 (그리드 활용) */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-x-6 gap-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-x-4 gap-y-2.5">
                             {/* 현재가 */}
                             <div>
-                                <p className="text-[10px] text-muted-foreground mb-0.5">현재가</p>
+                                <p className="text-xs text-muted-foreground mb-1">현재가</p>
                                 <div className="flex items-baseline gap-1.5">
                                     {isLoading ? (
                                         <Skeleton className="h-6 w-24" />
@@ -98,7 +98,7 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                             {/* 전일대비 */}
                             <div>
-                                <p className="text-[10px] text-muted-foreground mb-0.5">전일대비</p>
+                                <p className="text-xs text-muted-foreground mb-1">전일대비</p>
                                 {isLoading ? (
                                     <Skeleton className="h-5 w-20" />
                                 ) : (
@@ -113,7 +113,7 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                             {/* 거래량 */}
                             <div>
-                                <p className="text-[10px] text-muted-foreground mb-0.5">거래량</p>
+                                <p className="text-xs text-muted-foreground mb-1">거래량</p>
                                 {isLoading ? (
                                     <Skeleton className="h-5 w-20" />
                                 ) : (
@@ -126,13 +126,13 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                             {/* 고가 / 저가 (함께 묶음) */}
                             <div className="flex gap-4">
                                 <div>
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">고가</p>
+                                    <p className="text-xs text-muted-foreground mb-1">고가</p>
                                     <p className={cn("font-bold text-sm", !isDataMissing && "text-red-500")}>
                                         {isDataMissing ? "-" : formatNumber(high)}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">저가</p>
+                                    <p className="text-xs text-muted-foreground mb-1">저가</p>
                                     <p className={cn("font-bold text-sm", !isDataMissing && "text-blue-500")}>
                                         {isDataMissing ? "-" : formatNumber(low)}
                                     </p>
@@ -141,17 +141,17 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                         </div>
 
                         {/* 하단: 투자자 동향 (그리드 활용) */}
-                        <div className="mt-6 pt-4 border-t border-primary/10">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-xs font-bold flex items-center gap-1.5">
-                                    <TrendingUp className="h-3 w-3 text-primary/60" />
+                        <div className="mt-4 pt-3 border-t border-primary/10">
+                            <div className="flex items-center mb-2">
+                                <p className="text-xs font-bold flex items-center gap-1">
+                                    <TrendingUp className="h-3.5 w-3.5 text-primary/60" />
                                     투자자 동향
+                                    {investors?.date && (
+                                        <span className="text-muted-foreground font-normal">
+                                            ({investors.date.slice(4, 6)}.{investors.date.slice(6, 8)})
+                                        </span>
+                                    )}
                                 </p>
-                                {investors?.date && (
-                                    <span className="text-[9px] text-muted-foreground bg-muted/30 px-1 rounded">
-                                        {investors.date.slice(4, 6)}.{investors.date.slice(6, 8)}
-                                    </span>
-                                )}
                             </div>
 
                             {investorLoading ? (
@@ -175,10 +175,10 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                                         const displayWithSign = val > 0 ? `+${formatted}` : formatted;
 
                                         return (
-                                            <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/5 p-2 lg:p-0 rounded-sm">
-                                                <span className="text-muted-foreground text-[10px] font-medium">{item.label}</span>
+                                            <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/5 p-2 lg:p-0 rounded-sm gap-1">
+                                                <span className="text-muted-foreground text-xs font-medium">{item.label}</span>
                                                 <span className={cn(
-                                                    "font-bold text-xs",
+                                                    "font-bold text-sm sm:text-base",
                                                     val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : ""
                                                 )}>
                                                     {displayWithSign}

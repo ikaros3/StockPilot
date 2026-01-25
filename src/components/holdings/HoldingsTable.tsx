@@ -91,18 +91,13 @@ export function HoldingsTable({
         <div className="rounded-lg border bg-card">
             <Table>
                 <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-[180px]">종목명</TableHead>
-                        <TableHead className="text-right">현재가</TableHead>
-                        <TableHead className="text-right">등락</TableHead>
-                        <TableHead className="text-right">평가수익</TableHead>
-                        <TableHead className="text-right">수익률</TableHead>
-                        <TableHead className="text-right">보유수량</TableHead>
-                        <TableHead className="text-right">평균단가</TableHead>
-                        <TableHead className="text-right">매수금액</TableHead>
-                        <TableHead className="text-right">평가금액</TableHead>
-                        <TableHead className="text-right">투자비중</TableHead>
-                        <TableHead className="text-center w-[60px]">상세</TableHead>
+                    <TableRow className="hover:bg-transparent text-[11px] sm:text-xs text-muted-foreground">
+                        <TableHead className="px-2 h-10 w-[110px] sm:w-[140px]">종목</TableHead>
+                        <TableHead className="px-2 h-10 text-right">현재가/등락</TableHead>
+                        <TableHead className="px-2 h-10 text-right">수익/수익률</TableHead>
+                        <TableHead className="px-2 h-10 text-right">수량/평단</TableHead>
+                        <TableHead className="px-2 h-10 text-right">매수/평가액</TableHead>
+                        <TableHead className="px-1 h-10 text-center w-[40px]">상세</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -128,100 +123,102 @@ export function HoldingsTable({
                                 )}
                                 onClick={() => onRowClick?.(holding)}
                             >
-                                {/* 종목명 + 종목코드 */}
-                                <TableCell>
+                                {/* 종목 + 코드/비중 */}
+                                <TableCell className="px-2 py-2.5">
                                     <div className="flex flex-col">
-                                        <span className="font-medium">{holding.stockName}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {holding.stockCode}
+                                        <span className="font-semibold text-xs sm:text-sm leading-tight truncate max-w-[100px] sm:max-w-none">
+                                            {holding.stockName}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground leading-tight">
+                                            {holding.stockCode} · {weight.toFixed(1)}%
                                         </span>
                                     </div>
                                 </TableCell>
 
-                                {/* 현재가 */}
-                                <TableCell className={cn(
-                                    "text-right font-medium",
-                                    holding.currentPrice === null
-                                        ? "text-muted-foreground italic"
-                                        : isPriceUp ? PROFIT_COLOR : LOSS_COLOR
-                                )}>
-                                    {holding.currentPrice !== null ? formatCurrency(holding.currentPrice) : "N/A"}
+                                {/* 현재가 / 등락 */}
+                                <TableCell className="px-2 py-2.5 text-right">
+                                    <div className="flex flex-col items-end">
+                                        <span className={cn(
+                                            "font-medium text-xs sm:text-sm leading-tight",
+                                            holding.currentPrice === null
+                                                ? "text-muted-foreground italic"
+                                                : isPriceUp ? PROFIT_COLOR : LOSS_COLOR
+                                        )}>
+                                            {holding.currentPrice !== null ? formatNumber(holding.currentPrice) : "N/A"}
+                                        </span>
+                                        {holding.priceChange !== null && (
+                                            <span className={cn(
+                                                "text-[9px] sm:text-[10px] leading-tight font-medium",
+                                                isPriceUp ? PROFIT_COLOR : LOSS_COLOR
+                                            )}>
+                                                {isPriceUp ? "▲" : "▼"}{formatNumber(Math.abs(priceChange))} ({priceChangeRate.toFixed(1)}%)
+                                            </span>
+                                        )}
+                                    </div>
                                 </TableCell>
 
-                                {/* 등락 (전일대비) */}
-                                <TableCell className={cn(
-                                    "text-right text-sm",
-                                    holding.priceChange === null
-                                        ? "text-muted-foreground italic"
-                                        : isPriceUp ? PROFIT_COLOR : LOSS_COLOR
-                                )}>
-                                    {holding.priceChange !== null ? (
-                                        <div className="flex flex-col items-end">
-                                            <span>{formatChange(priceChange)}</span>
-                                            <span className="text-xs">({formatPercent(priceChangeRate)})</span>
-                                        </div>
-                                    ) : "N/A"}
+                                {/* 수익 / 수익률 */}
+                                <TableCell className="px-2 py-2.5 text-right">
+                                    <div className="flex flex-col items-end">
+                                        <span className={cn(
+                                            "font-medium text-xs sm:text-sm leading-tight",
+                                            holding.profit === null
+                                                ? "text-muted-foreground italic"
+                                                : isProfit ? PROFIT_COLOR : LOSS_COLOR
+                                        )}>
+                                            {holding.profit !== null ? formatNumber(Math.round(holding.profit)) : "N/A"}
+                                        </span>
+                                        {holding.profitRate !== null && (
+                                            <span className={cn(
+                                                "text-[9px] sm:text-[10px] leading-tight font-medium",
+                                                isProfit ? PROFIT_COLOR : LOSS_COLOR
+                                            )}>
+                                                {formatPercent(holding.profitRate)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </TableCell>
 
-
-
-                                {/* 평가수익 */}
-                                <TableCell className={cn(
-                                    "text-right font-medium",
-                                    holding.profit === null
-                                        ? "text-muted-foreground italic"
-                                        : isProfit ? PROFIT_COLOR : LOSS_COLOR
-                                )}>
-                                    {holding.profit !== null ? formatChange(holding.profit) : "N/A"}
+                                {/* 수량 / 평단 */}
+                                <TableCell className="px-2 py-2.5 text-right">
+                                    <div className="flex flex-col items-end">
+                                        <span className="font-medium text-xs sm:text-sm leading-tight">
+                                            {formatNumber(holding.quantity)}주
+                                        </span>
+                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground leading-tight">
+                                            {formatNumber(Math.round(holding.purchasePrice))}원
+                                        </span>
+                                    </div>
                                 </TableCell>
 
-                                {/* 수익률 */}
-                                <TableCell className={cn(
-                                    "text-right font-medium",
-                                    holding.profitRate === null
-                                        ? "text-muted-foreground italic"
-                                        : isProfit ? PROFIT_COLOR : LOSS_COLOR
-                                )}>
-                                    {holding.profitRate !== null ? formatPercent(holding.profitRate) : "N/A"}
+                                {/* 매수/평가액 */}
+                                <TableCell className="px-2 py-2.5 text-right">
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-xs sm:text-sm leading-tight">
+                                            {formatNumber(Math.round(investmentAmount))}
+                                        </span>
+                                        <span className={cn(
+                                            "text-[9px] sm:text-[10px] font-semibold leading-tight",
+                                            holding.evaluationAmount === null
+                                                ? "text-muted-foreground italic"
+                                                : isProfit ? PROFIT_COLOR : LOSS_COLOR
+                                        )}>
+                                            {holding.evaluationAmount !== null
+                                                ? formatNumber(Math.round(holding.evaluationAmount))
+                                                : "N/A"}
+                                        </span>
+                                    </div>
                                 </TableCell>
 
-                                {/* 보유수량 */}
-                                <TableCell className="text-right">
-                                    {formatNumber(holding.quantity)}주
-                                </TableCell>
-
-                                {/* 평균단가 */}
-                                <TableCell className="text-right">
-                                    {formatCurrency(holding.purchasePrice)}
-                                </TableCell>
-
-                                {/* 매수금액 */}
-                                <TableCell className="text-right">
-                                    {formatCurrency(investmentAmount)}
-                                </TableCell>
-
-                                {/* 평가금액 */}
-                                <TableCell className={cn(
-                                    "text-right font-medium",
-                                    holding.evaluationAmount === null && "text-muted-foreground italic"
-                                )}>
-                                    {holding.evaluationAmount !== null ? formatCurrency(holding.evaluationAmount) : "N/A"}
-                                </TableCell>
-
-                                {/* 투자비중 */}
-                                <TableCell className="text-right">
-                                    {weight.toFixed(1)}%
-                                </TableCell>
-
-                                {/* 상세분석보기 */}
-                                <TableCell className="text-center">
+                                {/* 상세 */}
+                                <TableCell className="px-1 py-2.5 text-center">
                                     <Link
                                         href={`/stocks/${holding.stockCode}`}
-                                        className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent transition-colors"
-                                        title="상세 분석 보기"
+                                        className="inline-flex items-center justify-center rounded-md p-1 hover:bg-accent transition-colors"
+                                        title="상세 분석"
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                                     </Link>
                                 </TableCell>
                             </TableRow>
