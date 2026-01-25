@@ -226,4 +226,16 @@ export class ServerKisService {
         const { kisRequestQueue } = await import("./kis-request-queue");
         return kisRequestQueue.getPrices(symbols);
     }
+
+    /**
+     * 지수 정보 조회 (KOSPI, KOSDAQ, NASDAQ, DOW)
+     * 현재는 API 호출 없이 '데이터 없음' 처리
+     */
+    static async getIndices(): Promise<{ indices: any[], isMarketOpen: boolean }> {
+        const indices = ["KOSPI", "KOSDAQ", "NASDAQ", "DOW"];
+        return {
+            indices: indices.map(id => ({ name: id, error: "No data" })),
+            isMarketOpen: false
+        };
+    }
 }
