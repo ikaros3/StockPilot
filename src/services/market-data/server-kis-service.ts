@@ -271,8 +271,8 @@ export class ServerKisService {
 
         const baseUrl = this.getBaseUrl(env);
 
-        // Rate Limiter 적용 (재시도 없음 - Rate Limit 오류 방지)
-        return await kisRateLimiter.execute(async () => {
+        // Rate Limiter 적용
+        const data = await kisRateLimiter.execute(async () => {
             let response: Response;
 
             if (method === "GET") {
@@ -291,31 +291,32 @@ export class ServerKisService {
                 });
             }
 
-            const data = await response.json();
+            return await response.json();
+        });
 
-            if (data.rt_cd !== "0") {
-                // 1. 토큰 만료 에러 처리
-                if (data.msg1?.includes("기간이 만료된 token") || data.msg_cd === "EGW00123") {
-                    console.warn(`[KIS Server] 토큰 만료 감지 (${path}): force refresh 후 재시도...`);
+        // 1. 토큰 만료 에러 처리 (Rate Limiter 바깥에서 처리하여 데드락 방지)
+        if (data && data.rt_cd !== "0") {
+            if (data.msg1?.includes("기간이 만료된 token") || data.msg_cd === "EGW00123") {
+                console.warn(`[KIS Server] 토큰 만료 감지 (${path}): force refresh 후 재시도...`);
 
-                    if (!isRetry) {
-                        // 토큰 강제 갱신
-                        await this.getAccessToken(true);
-                        // 1회 재시도
-                        return await this.callApi(path, trId, params, method, true);
-                    }
+                if (!isRetry) {
+                    // 토큰 강제 갱신
+                    await this.getAccessToken(true);
+                    // 1회 재시도 (새로운 Rate Limiter 작업으로 등록됨)
+                    return await this.callApi(path, trId, params, method, true);
                 }
-
-                // 2. Rate Limit 오류
-                if (data.msg1?.includes("초당 거래건수")) {
-                    console.warn(`[KIS Server] Rate Limit 도달 (${path}): ${data.msg1}`);
-                    return null;
-                }
-                console.error(`[KIS Server] API 응답 오류 (${path}): ${data.msg1}`);
             }
 
-            return data;
-        });
+            // 2. Rate Limit 오류
+            if (data.msg1?.includes("초당 거래건수")) {
+                console.warn(`[KIS Server] Rate Limit 도달 (${path}): ${data.msg1}`);
+                return null;
+            }
+
+            console.error(`[KIS Server] API 응답 오류 (${path}): ${data.msg1}`);
+        }
+
+        return data;
     }
 
     /**
