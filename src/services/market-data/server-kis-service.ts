@@ -222,11 +222,11 @@ export class ServerKisService {
                     expiresAt: expiresAt,
                 };
 
-                // Firestore 저장 (비동기로 시도, 실패해도 토큰 발급은 성공 처리)
+                // Firestore 저장 (비동기로 시도)
                 getAdminDb().collection('system_metadata').doc(`kis_token_${env}`).set({
                     ...token,
                     updatedAt: new Date()
-                }).catch(e => console.warn('[KIS Server] Firestore 토큰 업데이트 권장되지만 실패함:', e.message));
+                }).catch((e: any) => console.warn('[KIS Server] Firestore 토큰 업데이트 권장되지만 실패함:', e.message));
 
                 // 메모리 저장 (가장 확실함)
                 memoryTokenCache.set(env, token);

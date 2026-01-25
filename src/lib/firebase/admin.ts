@@ -1,19 +1,24 @@
 import * as admin from 'firebase-admin';
 
-// Environment variables
+/**
+ * Firebase Admin Singleton 패턴
+ * Next.js 15+ Standalone 빌드 환경에서 모듈 누락 방지를 위해 
+ * 루트 패키지를 통해 초기화하는 가장 보수적이고 안정적인 방식입니다.
+ */
+
+// 환경 변수 로드
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-let db: admin.firestore.Firestore | null = null;
+let cachedDb: admin.firestore.Firestore | null = null;
 
-/**
- * Firebase Admin SDK를 초기화하고 인스턴스를 반환합니다.
- */
 function initAdmin(): admin.app.App {
+    // 1. 이미 초기화된 앱이 있으면 재사용 (Hot Reload 대응)
     const apps = admin.apps;
     if (apps.length > 0) return apps[0]!;
 
     try {
+        // 2. 서비스 계정 JSON이 직접 설정된 경우 (로컬/특수 목적)
         if (FIREBASE_SERVICE_ACCOUNT) {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
             return admin.initializeApp({
@@ -22,43 +27,38 @@ function initAdmin(): admin.app.App {
             });
         }
 
-        // Cloud Run / Local Fallback
+        // 3. 배포 환경(GCP/Firebase) - 가급적 기본 ADC 인증 사용
+        // PROJECT_ID만 있어도 GCP 환경의 기본 서비스 계정 권한으로 자동 로그인됩니다.
         if (PROJECT_ID) {
-            return admin.initializeApp({ projectId: PROJECT_ID });
+            return admin.initializeApp({
+                projectId: PROJECT_ID
+            });
         }
 
+        // 4. 최후의 수단: 환경 정보가 전혀 없으면 자동으로 추론 시도
         return admin.initializeApp();
     } catch (error: any) {
-        // 이미 초기화된 경우 재사용
         if (error.code === 'app/duplicate-app') {
             return admin.app();
         }
-        console.error('Firebase Admin Initialization Error:', error);
+        console.error('Firebase Admin Initialization FAILED:', error);
         throw error;
     }
 }
 
 /**
- * Firestore DB 인스턴스를 반환합니다.
+ * Firestore DB 인스턴스 획득
  */
 export function getAdminDb(): admin.firestore.Firestore {
-    if (db) return db;
+    if (cachedDb) return cachedDb;
 
-    try {
-        const adminApp = initAdmin();
-        db = admin.firestore(adminApp);
-        return db;
-    } catch (error) {
-        console.error('Failed to get Firestore DB:', error);
-        // DB 연결 실패 시 에러가 전체 서비스를 멈추지 않도록 처리하는 것이 중요하나, 
-        // 여기서는 상위에서 호출 시 에러 처리가 되도록 함.
-        throw error;
-    }
+    const app = initAdmin();
+    // admin.firestore()를 통해 인스턴스 획득 (번들러 경로 오류 최소화)
+    cachedDb = admin.firestore(app);
+    return cachedDb;
 }
 
-// 하위 호환성을 위해 유지하되, 사용 시 주의
+// 기존 코드와의 호환성 유지
 export const adminDb = {
     collection: (path: string) => getAdminDb().collection(path),
 } as any;
-
-
