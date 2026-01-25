@@ -26,6 +26,9 @@ export interface HoldingData {
     performanceStatus: PerformanceStatus;
     priceChange?: number | null;      // 전일대비 등락
     priceChangeRate?: number | null;  // 전일대비 등락률
+    openPrice?: number | null;        // 시가
+    highPrice?: number | null;        // 고가
+    lowPrice?: number | null;         // 저가
     isApiSuccess?: boolean;           // API 호출 성공 여부
 }
 
@@ -70,6 +73,36 @@ function formatChange(num: number): string {
 const PROFIT_COLOR = "text-profit";
 const LOSS_COLOR = "text-loss";
 
+/**
+ * 당일 가격 변동폭 (미니 가로 캔들)
+ */
+function MiniDayRange({ low, high, current, open }: { low: number, high: number, current: number, open: number }) {
+    if (!low || !high || !current || !open || high === low) return <div className="w-16 sm:w-20 h-1 bg-muted/20 rounded-full mb-1" />;
+
+    const range = high - low;
+    const bodyStart = ((Math.min(open, current) - low) / range) * 100;
+    const bodyEnd = ((Math.max(open, current) - low) / range) * 100;
+    const isUp = current >= open;
+    const bodyColor = isUp ? "bg-profit" : "bg-loss";
+    const wickColor = isUp ? "bg-profit/40" : "bg-loss/40";
+
+    return (
+        <div className="w-16 sm:w-20 h-2 flex items-center relative mb-1.5">
+            {/* 고가-저가 꼬리 (얇은 선) */}
+            <div className={cn("absolute w-full h-[2px]", wickColor)} />
+
+            {/* 시가-현재가 몸통 (두꺼운 막대) */}
+            <div
+                className={cn("absolute h-[6px] rounded-full transition-all shadow-sm", bodyColor)}
+                style={{
+                    left: `${bodyStart}%`,
+                    width: `${Math.max(bodyEnd - bodyStart, 3)}%`
+                }}
+            />
+        </div>
+    );
+}
+
 export function HoldingsTable({
     holdings,
     totalInvestment,
@@ -91,7 +124,7 @@ export function HoldingsTable({
         <div className="rounded-lg border bg-card">
             <Table>
                 <TableHeader>
-                    <TableRow className="hover:bg-transparent text-[11px] sm:text-xs text-muted-foreground">
+                    <TableRow className="hover:bg-transparent text-xs sm:text-sm text-muted-foreground">
                         <TableHead className="px-2 h-10 w-[110px] sm:w-[140px]">종목</TableHead>
                         <TableHead className="px-2 h-10 text-right">현재가/등락</TableHead>
                         <TableHead className="px-2 h-10 text-right">수익/수익률</TableHead>
@@ -116,7 +149,7 @@ export function HoldingsTable({
                             <TableRow
                                 key={holding.id}
                                 className={cn(
-                                    "cursor-pointer transition-colors",
+                                    "cursor-pointer transition-colors text-sm sm:text-base",
                                     isSelected
                                         ? "bg-primary/10 hover:bg-primary/15"
                                         : "hover:bg-muted/50"
@@ -126,20 +159,29 @@ export function HoldingsTable({
                                 {/* 종목 + 코드/비중 */}
                                 <TableCell className="px-2 py-2.5">
                                     <div className="flex flex-col">
-                                        <span className="font-semibold text-xs sm:text-sm leading-tight truncate max-w-[100px] sm:max-w-none">
+                                        <span className="font-semibold leading-tight truncate max-w-[100px] sm:max-w-none">
                                             {holding.stockName}
                                         </span>
-                                        <span className="text-[10px] text-muted-foreground leading-tight">
+                                        <span className="text-[11px] sm:text-xs text-muted-foreground leading-tight">
                                             {holding.stockCode} · {weight.toFixed(1)}%
                                         </span>
                                     </div>
                                 </TableCell>
 
                                 {/* 현재가 / 등락 */}
-                                <TableCell className="px-2 py-2.5 text-right">
+                                <TableCell className="px-2 py-3 text-right border-l/10">
                                     <div className="flex flex-col items-end">
+                                        {/* 미니 가로 캔들 */}
+                                        {holding.currentPrice && holding.openPrice && (
+                                            <MiniDayRange
+                                                low={holding.lowPrice || 0}
+                                                high={holding.highPrice || 0}
+                                                current={holding.currentPrice}
+                                                open={holding.openPrice}
+                                            />
+                                        )}
                                         <span className={cn(
-                                            "font-medium text-xs sm:text-sm leading-tight",
+                                            "font-medium leading-tight",
                                             holding.currentPrice === null
                                                 ? "text-muted-foreground italic"
                                                 : isPriceUp ? PROFIT_COLOR : LOSS_COLOR
@@ -148,7 +190,7 @@ export function HoldingsTable({
                                         </span>
                                         {holding.priceChange !== null && (
                                             <span className={cn(
-                                                "text-[9px] sm:text-[10px] leading-tight font-medium",
+                                                "text-[11px] sm:text-xs leading-tight font-medium",
                                                 isPriceUp ? PROFIT_COLOR : LOSS_COLOR
                                             )}>
                                                 {isPriceUp ? "▲" : "▼"}{formatNumber(Math.abs(priceChange))} ({priceChangeRate.toFixed(1)}%)
@@ -158,10 +200,10 @@ export function HoldingsTable({
                                 </TableCell>
 
                                 {/* 수익 / 수익률 */}
-                                <TableCell className="px-2 py-2.5 text-right">
+                                <TableCell className="px-2 py-3 text-right">
                                     <div className="flex flex-col items-end">
                                         <span className={cn(
-                                            "font-medium text-xs sm:text-sm leading-tight",
+                                            "font-medium leading-tight",
                                             holding.profit === null
                                                 ? "text-muted-foreground italic"
                                                 : isProfit ? PROFIT_COLOR : LOSS_COLOR
@@ -170,7 +212,7 @@ export function HoldingsTable({
                                         </span>
                                         {holding.profitRate !== null && (
                                             <span className={cn(
-                                                "text-[9px] sm:text-[10px] leading-tight font-medium",
+                                                "text-[11px] sm:text-xs leading-tight font-medium",
                                                 isProfit ? PROFIT_COLOR : LOSS_COLOR
                                             )}>
                                                 {formatPercent(holding.profitRate)}
@@ -180,25 +222,25 @@ export function HoldingsTable({
                                 </TableCell>
 
                                 {/* 수량 / 평단 */}
-                                <TableCell className="px-2 py-2.5 text-right">
+                                <TableCell className="px-2 py-3 text-right">
                                     <div className="flex flex-col items-end">
-                                        <span className="font-medium text-xs sm:text-sm leading-tight">
+                                        <span className="font-medium leading-tight">
                                             {formatNumber(holding.quantity)}주
                                         </span>
-                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground leading-tight">
+                                        <span className="text-[11px] sm:text-xs text-muted-foreground leading-tight">
                                             {formatNumber(Math.round(holding.purchasePrice))}원
                                         </span>
                                     </div>
                                 </TableCell>
 
                                 {/* 매수/평가액 */}
-                                <TableCell className="px-2 py-2.5 text-right">
+                                <TableCell className="px-2 py-3 text-right">
                                     <div className="flex flex-col items-end">
-                                        <span className="text-xs sm:text-sm leading-tight">
+                                        <span className="leading-tight">
                                             {formatNumber(Math.round(investmentAmount))}
                                         </span>
                                         <span className={cn(
-                                            "text-[9px] sm:text-[10px] font-semibold leading-tight",
+                                            "text-[11px] sm:text-xs font-semibold leading-tight",
                                             holding.evaluationAmount === null
                                                 ? "text-muted-foreground italic"
                                                 : isProfit ? PROFIT_COLOR : LOSS_COLOR
@@ -225,6 +267,54 @@ export function HoldingsTable({
                         );
                     })}
                 </TableBody>
+                {/* 합계 행 추가 */}
+                <tfoot className="bg-muted/30 border-t-2 border-muted">
+                    <TableRow className="hover:bg-transparent text-sm sm:text-base font-bold">
+                        <TableCell className="px-2 py-3">
+                            <div className="flex flex-col">
+                                <span>합계</span>
+                                <span className="text-[11px] sm:text-xs text-muted-foreground font-normal">
+                                    {holdings.length}개 종목
+                                </span>
+                            </div>
+                        </TableCell>
+                        <TableCell className="px-2 py-3 text-right text-muted-foreground font-normal">-</TableCell>
+                        <TableCell className="px-2 py-3 text-right">
+                            {(() => {
+                                const totalEval = holdings.reduce((sum, h) => sum + (h.evaluationAmount ?? (h.purchasePrice * h.quantity)), 0);
+                                const totalProfit = totalEval - totalInvestment;
+                                const totalRate = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
+                                const isTotalProfit = totalProfit >= 0;
+                                return (
+                                    <div className="flex flex-col items-end">
+                                        <span className={isTotalProfit ? PROFIT_COLOR : LOSS_COLOR}>
+                                            {formatNumber(Math.round(totalProfit))}
+                                        </span>
+                                        <span className={cn("text-[11px] sm:text-xs font-medium", isTotalProfit ? PROFIT_COLOR : LOSS_COLOR)}>
+                                            {formatPercent(totalRate)}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+                        </TableCell>
+                        <TableCell className="px-2 py-3 text-right text-muted-foreground font-normal">-</TableCell>
+                        <TableCell className="px-2 py-3 text-right">
+                            {(() => {
+                                const totalEval = holdings.reduce((sum, h) => sum + (h.evaluationAmount ?? (h.purchasePrice * h.quantity)), 0);
+                                const isTotalProfit = totalEval >= totalInvestment;
+                                return (
+                                    <div className="flex flex-col items-end">
+                                        <span>{formatNumber(Math.round(totalInvestment))}</span>
+                                        <span className={cn("text-[11px] sm:text-xs font-semibold", isTotalProfit ? PROFIT_COLOR : LOSS_COLOR)}>
+                                            {formatNumber(Math.round(totalEval))}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+                        </TableCell>
+                        <TableCell className="px-1 py-3 text-center">-</TableCell>
+                    </TableRow>
+                </tfoot>
             </Table>
         </div>
     );

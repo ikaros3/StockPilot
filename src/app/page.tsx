@@ -53,6 +53,9 @@ interface HoldingWithPrice {
   performanceStatus: PerformanceStatus;
   priceChange: number | null;       // 전일 대비 가격 변동
   priceChangeRate: number | null;   // 전일 대비 등락률 (%)
+  openPrice: number | null;       // 시가
+  highPrice: number | null;       // 고가
+  lowPrice: number | null;        // 저가
   isApiSuccess: boolean;            // API 호출 성공 여부
 }
 
@@ -178,6 +181,9 @@ export default function Home() {
           performanceStatus: "neutral" as PerformanceStatus,
           priceChange: null,
           priceChangeRate: null,
+          openPrice: null,
+          highPrice: null,
+          lowPrice: null,
           isApiSuccess: false,
         }));
 
@@ -235,6 +241,9 @@ export default function Home() {
                 performanceStatus: getPerformanceStatus(profitRate),
                 priceChange: priceData.changePrice,
                 priceChangeRate: priceData.changeRate,
+                openPrice: priceData.openPrice as number || null,
+                highPrice: priceData.highPrice as number || null,
+                lowPrice: priceData.lowPrice as number || null,
                 isApiSuccess: true,
               };
             } else {
@@ -251,6 +260,9 @@ export default function Home() {
                 performanceStatus: "neutral" as PerformanceStatus,
                 priceChange: null,
                 priceChangeRate: null,
+                openPrice: null,
+                highPrice: null,
+                lowPrice: null,
                 isApiSuccess: false,
               };
             }

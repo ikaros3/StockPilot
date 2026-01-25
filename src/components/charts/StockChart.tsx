@@ -259,9 +259,9 @@ export function StockChart({ stockCode, data, height = 400, purchasePrice, perio
                 <Link href={`/stocks/${stockCode}`}>
                     <Button
                         size="sm"
-                        className="gap-1.5 h-7 text-[11px] font-bold bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white shadow-sm shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 px-3"
+                        className="gap-1.5 h-8 text-xs sm:text-sm font-bold bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white shadow-sm shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 px-4"
                     >
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-4 w-4" />
                         상세 분석
                     </Button>
                 </Link>
@@ -270,7 +270,7 @@ export function StockChart({ stockCode, data, height = 400, purchasePrice, perio
 
                 <div className="flex items-center gap-6">
                     {/* 기간 선택 */}
-                    <div className="flex items-center gap-1 bg-background/50 p-0.5 rounded-sm border border-border/50">
+                    <div className="flex items-center gap-1 bg-background/50 p-1 rounded-md border border-border/50">
                         {["1m", "D", "W", "M", "Y"].map((p) => {
                             const labelMap: Record<string, string> = { "1m": "1분", "D": "일", "W": "주", "M": "월", "Y": "년" };
                             return (
@@ -278,7 +278,7 @@ export function StockChart({ stockCode, data, height = 400, purchasePrice, perio
                                     key={p}
                                     onClick={() => onPeriodChange?.(p)}
                                     className={cn(
-                                        "px-2 py-0.5 text-[10px] font-medium rounded-sm transition-colors",
+                                        "px-3 py-1 text-xs sm:text-sm font-semibold rounded-sm transition-colors",
                                         period === p
                                             ? "bg-background shadow-sm text-foreground"
                                             : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
@@ -291,14 +291,14 @@ export function StockChart({ stockCode, data, height = 400, purchasePrice, perio
                     </div>
 
                     {/* 이동평균선 토글 */}
-                    <div className="flex items-center gap-2 text-[10px]">
-                        <span className="text-muted-foreground font-medium mr-1">이동평균선</span>
+                    <div className="flex items-center gap-3 text-xs sm:text-sm">
+                        <span className="text-muted-foreground font-semibold mr-1">이동평균선</span>
                         {[5, 20, 60].map((days) => (
                             <button
                                 key={days}
                                 onClick={() => toggleMA(days)}
                                 className={cn(
-                                    "font-bold transition-opacity",
+                                    "font-bold transition-opacity px-1",
                                     visibleMAs.includes(days) ? "opacity-100" : "opacity-30 hover:opacity-100"
                                 )}
                                 style={{

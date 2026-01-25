@@ -60,12 +60,12 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                         <div className="flex flex-row lg:flex-col justify-between items-start gap-1 mb-2.5">
                             <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-2">
-                                    <CardTitle className="text-lg font-bold truncate">{stockName}</CardTitle>
+                                    <CardTitle className="text-xl font-bold truncate">{stockName}</CardTitle>
                                     {isDataMissing && (
-                                        <Badge variant="secondary" className="text-[10px] h-4">데이터 없음</Badge>
+                                        <Badge variant="secondary" className="text-xs h-5">데이터 없음</Badge>
                                     )}
                                 </div>
-                                <span className="text-xs text-muted-foreground font-mono">{stockCode}</span>
+                                <span className="text-sm text-muted-foreground font-mono">{stockCode}</span>
                             </div>
                         </div>
 
@@ -73,18 +73,18 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-x-4 gap-y-2.5">
                             {/* 현재가 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-1">현재가</p>
+                                <p className="text-sm text-muted-foreground mb-1">현재가</p>
                                 <div className="flex items-baseline gap-1.5">
                                     {isLoading ? (
                                         <Skeleton className="h-6 w-24" />
                                     ) : (
                                         <>
-                                            <span className={cn("text-lg font-bold tracking-tight", isDataMissing && "text-muted-foreground")}>
+                                            <span className={cn("text-2xl font-bold tracking-tight", isDataMissing && "text-muted-foreground")}>
                                                 {currentPrice ? formatNumber(currentPrice) : "N/A"}
                                             </span>
                                             {!isDataMissing && (
                                                 <div className={cn(
-                                                    "flex items-center gap-0.5 text-[10px] font-bold",
+                                                    "flex items-center gap-0.5 text-xs font-bold",
                                                     isProfit ? "text-red-500" : "text-blue-500"
                                                 )}>
                                                     <span>{isProfit ? "▲" : "▼"}</span>
@@ -98,12 +98,12 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                             {/* 전일대비 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-1">전일대비</p>
+                                <p className="text-sm text-muted-foreground mb-1">전일대비</p>
                                 {isLoading ? (
                                     <Skeleton className="h-5 w-20" />
                                 ) : (
                                     <p className={cn(
-                                        "font-bold text-sm",
+                                        "font-bold text-base",
                                         isDataMissing ? "text-muted-foreground" : (isProfit ? "text-red-500" : "text-blue-500")
                                     )}>
                                         {isDataMissing ? "-" : (isProfit ? "+" : "") + formatNumber(changePrice)}
@@ -113,11 +113,11 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                             {/* 거래량 */}
                             <div>
-                                <p className="text-xs text-muted-foreground mb-1">거래량</p>
+                                <p className="text-base text-muted-foreground mb-1">거래량</p>
                                 {isLoading ? (
                                     <Skeleton className="h-5 w-20" />
                                 ) : (
-                                    <p className="font-bold text-sm">
+                                    <p className="font-bold text-base">
                                         {isDataMissing ? "-" : formatNumber(volume)}
                                     </p>
                                 )}
@@ -126,14 +126,14 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                             {/* 고가 / 저가 (함께 묶음) */}
                             <div className="flex gap-4">
                                 <div>
-                                    <p className="text-xs text-muted-foreground mb-1">고가</p>
-                                    <p className={cn("font-bold text-sm", !isDataMissing && "text-red-500")}>
+                                    <p className="text-base text-muted-foreground mb-1">고가</p>
+                                    <p className={cn("font-bold text-base", !isDataMissing && "text-red-500")}>
                                         {isDataMissing ? "-" : formatNumber(high)}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground mb-1">저가</p>
-                                    <p className={cn("font-bold text-sm", !isDataMissing && "text-blue-500")}>
+                                    <p className="text-base text-muted-foreground mb-1">저가</p>
+                                    <p className={cn("font-bold text-base", !isDataMissing && "text-blue-500")}>
                                         {isDataMissing ? "-" : formatNumber(low)}
                                     </p>
                                 </div>
@@ -142,12 +142,12 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                         {/* 하단: 투자자 동향 (그리드 활용) */}
                         <div className="mt-4 pt-3 border-t border-primary/10">
-                            <div className="flex items-center mb-2">
-                                <p className="text-xs font-bold flex items-center gap-1">
-                                    <TrendingUp className="h-3.5 w-3.5 text-primary/60" />
+                            <div className="flex items-center mb-3">
+                                <p className="text-sm font-bold flex items-center gap-1.5">
+                                    <TrendingUp className="h-4 w-4 text-primary/60" />
                                     투자자 동향
                                     {investors?.date && (
-                                        <span className="text-muted-foreground font-normal">
+                                        <span className="text-muted-foreground font-normal ml-1">
                                             ({investors.date.slice(4, 6)}.{investors.date.slice(6, 8)})
                                         </span>
                                     )}
@@ -175,10 +175,10 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                                         const displayWithSign = val > 0 ? `+${formatted}` : formatted;
 
                                         return (
-                                            <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/5 p-2 lg:p-0 rounded-sm gap-1">
-                                                <span className="text-muted-foreground text-xs font-medium">{item.label}</span>
+                                            <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/10 p-2.5 lg:p-0 rounded-md gap-1">
+                                                <span className="text-muted-foreground text-sm font-medium">{item.label}</span>
                                                 <span className={cn(
-                                                    "font-bold text-sm sm:text-base",
+                                                    "font-bold text-base sm:text-lg",
                                                     val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : ""
                                                 )}>
                                                     {displayWithSign}
