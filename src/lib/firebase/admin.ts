@@ -1,43 +1,43 @@
-import { initializeApp, getApps, cert, getApp, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 
 /**
- * Firebase Admin SDK 초기화 (Canonical Modular Pattern)
+ * Firebase Admin SDK 초기화 (Canonical Root Pattern)
  * 
- * Next.js 15/16 및 Firebase Hosting 'webframeworks' 최적화:
- * - 서브패키지(/app, /firestore)를 사용하여 ESM 트리쉐이킹을 지원합니다.
- * - 프로젝트의 초기 성공적인 대화 맥락을 반영한 정석적인 초기화 방식입니다.
+ * Next.js 16/15 Turbopack 환경에서의 모듈 해석 오류를 방지하기 위해 
+ * 서브경로(/app, /firestore)가 아닌 루트 패키지 import 방식을 사용합니다.
  */
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-function initAdmin(): App {
-    // 이미 초기화된 앱이 있으면 재사용
-    if (getApps().length > 0) return getApp();
+function initAdmin(): admin.app.App {
+    // 1. 이미 초기화된 경우 재사용
+    if (admin.apps.length > 0) return admin.app();
 
     try {
-        // 1. 서비스 계정이 키가 환경변수로 있는 경우
+        // 2. 서비스 계정 키가 명시적으로 제공된 경우
         if (FIREBASE_SERVICE_ACCOUNT) {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-            return initializeApp({
-                credential: cert(serviceAccount),
+            return admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
                 projectId: serviceAccount.project_id || PROJECT_ID
             });
         }
 
-        // 2. 관리자 환경 (GCP/Firebase)에서 실행 중인 경우 ADC 활용
+        // 3. 배포 환경(GCP/Firebase) - 프로젝트 ID만으로 ADC 기반 자동 초기화
         if (PROJECT_ID) {
-            return initializeApp({ projectId: PROJECT_ID });
+            return admin.initializeApp({
+                projectId: PROJECT_ID
+            });
         }
 
-        // 3. 대체 수단 (Default)
-        return initializeApp();
+        // 4. 로컬 에뮬레이터 또는 기타 환경
+        return admin.initializeApp();
     } catch (error: any) {
         if (error.code === 'app/duplicate-app') {
-            return getApp();
+            return admin.app();
         }
-        console.error('Firebase Admin Initialization Error:', error);
+        console.error('[Firebase Admin] Initialization ERROR:', error);
         throw error;
     }
 }
@@ -45,13 +45,13 @@ function initAdmin(): App {
 /**
  * Firestore DB 인스턴스를 반환합니다.
  */
-export function getAdminDb(): Firestore {
-    // 서버 환경인 경우에만 초기화 진행
+export function getAdminDb(): admin.firestore.Firestore {
     if (typeof window !== 'undefined') {
         throw new Error('[Firebase Admin] Cannot be used in client environments.');
     }
-    const adminApp = initAdmin();
-    return getFirestore(adminApp);
+    const app = initAdmin();
+    // 루트 admin 객체를 통해 firestore 인스턴스 획득 (경로 해석 오류 방지)
+    return admin.firestore(app);
 }
 
 // 하위 호환성을 위해 유지

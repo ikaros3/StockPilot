@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Firebase Hosting 'webframeworks'는 Next.js 빌드를 직접 수행하므로, 
-  // 표준 패키징을 방해하는 serverExternalPackages 등은 명시하지 않는 것이 정석입니다.
-  // 이전에 성공적으로 작동했던 '깨끗한' 설정으로 원복합니다.
+  // Turbopack에서 firebase-admin 패키지를 외부 모듈로 명확히 처리하도록 강제합니다.
+  // 이 설정은 프로덕션 및 개발 환경 모두에서 모듈 분석 오류를 방지하는 표준적인 방식입니다.
+  serverExternalPackages: ['firebase-admin'],
 
   async headers() {
     const securityHeaders = [
