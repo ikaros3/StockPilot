@@ -1,65 +1,67 @@
-import * as admin from 'firebase-admin';
+import { createRequire } from 'module';
+// const require = createRequire(import.meta.url); // Cloud Run 환경에서 import.meta.url 사용 시 주의 필요할 수 있음. 
+// 안전하게 require 그대로 사용 시도하거나 동적 import 사용.
+// 하지만 동기 함수 유지를 위해 require가 필요함
 
-/**
- * [최종 안정화 버전] firebase-admin 초기화
- * 
- * next.config.ts의 serverExternalPackages 설정과 결합하여
- * 빌드 타임의 해싱 오류를 원천 차단하고 실행 시점의 안정성을 보장합니다.
- */
+const require = createRequire(import.meta.url);
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-let cachedDb: admin.firestore.Firestore | null = null;
+let app: any;
+let db: any;
 
-function initAdmin(): admin.app.App {
-    // 1. 중복 초기화 방지 (Next.js 핫 리로딩 대응)
-    const apps = admin.apps;
-    if (apps.length > 0) return apps[0]! as admin.app.App;
+function initAdmin() {
+    if (app) return app;
 
-    try {
-        // 2. 서비스 계정 키가 있는 경우 (로컬/특수 목적)
+    // Use require to bypass bundler mangling
+    // We construct the path dynamically to prevent Turbopack/Webpack from rewriting the module name
+    const PKG = 'firebase-admin';
+    const { initializeApp, getApps, cert, getApp } = require(`${PKG}/app`);
+
+    if (!getApps().length) {
         if (FIREBASE_SERVICE_ACCOUNT) {
-            const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-            return admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: serviceAccount.project_id || PROJECT_ID
-            });
+            try {
+                const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+                const pId = serviceAccount.project_id || PROJECT_ID;
+                app = initializeApp({
+                    credential: cert(serviceAccount),
+                    projectId: pId
+                });
+            } catch (error) {
+                console.error('Firebase Service Account parsing error:', error);
+                // Fallback attempt
+                if (PROJECT_ID) {
+                    app = initializeApp({ projectId: PROJECT_ID });
+                } else {
+                    app = initializeApp();
+                }
+            }
+        } else {
+            // Cloud Run / Local Fallback
+            if (PROJECT_ID) {
+                app = initializeApp({ projectId: PROJECT_ID });
+            } else {
+                app = initializeApp();
+            }
         }
-
-        // 3. 배포 환경 (GCP/Firebase) - ADC 자동 감지
-        if (PROJECT_ID) {
-            return admin.initializeApp({
-                projectId: PROJECT_ID
-            });
-        }
-
-        // 4. 최후의 수단
-        return admin.initializeApp();
-    } catch (error: any) {
-        if (error.code === 'app/duplicate-app') {
-            return admin.app() as admin.app.App;
-        }
-        console.error('[Firebase Admin Final Init Error]:', error);
-        throw error;
+    } else {
+        app = getApp();
     }
+    return app;
 }
 
-export function getAdminDb(): admin.firestore.Firestore {
-    // 런타임 체크 (서버사이드 전용)
-    if (typeof window !== 'undefined') {
-        throw new Error('[Firebase Admin] Cannot be used in browser environments.');
+export function getAdminDb() {
+    if (!db) {
+        const adminApp = initAdmin();
+        const PKG = 'firebase-admin';
+        const { getFirestore } = require(`${PKG}/firestore`);
+        db = getFirestore(adminApp);
     }
-
-    if (!cachedDb) {
-        const app = initAdmin();
-        // 루트 패키지에서 firestore(app)을 호출하여 서브패키지 로딩 문제를 회피합니다.
-        cachedDb = admin.firestore(app);
-    }
-    return cachedDb;
+    return db;
 }
 
-// 하위 호환성 유지
+// 하위 호환성을 위해 유지되, 사용 시 주의
 export const adminDb = {
     collection: (path: string) => getAdminDb().collection(path),
 } as any;

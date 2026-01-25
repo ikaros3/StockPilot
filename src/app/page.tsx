@@ -337,17 +337,22 @@ export default function Home() {
   if (isAuthLoading || (loading && !data)) {
     return (
       <DashboardLayout>
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
             <Skeleton className="h-9 w-32" />
             <Skeleton className="h-5 w-64 mt-2" />
           </div>
-          <Skeleton className="h-40 w-full" />
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-24 w-full" />
+          <div className="space-y-2">
             <Skeleton className="h-6 w-24" />
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
           </div>
@@ -424,9 +429,9 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* 페이지 제목 및 포트폴리오 선택 */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               {selectedPortfolio === "all" ? "내 자산" : portfolios.find(p => p.id === selectedPortfolio)?.name || "포트폴리오"}
@@ -452,7 +457,7 @@ export default function Home() {
         <PortfolioSummaryCard {...data.portfolioSummary} />
 
         {/* 보유 종목 */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           <h2 className="text-xl font-semibold">
             보유 종목
             {selectedPortfolio === "all" && portfolios.length > 1 && (
