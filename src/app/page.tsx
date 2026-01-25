@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout } from "@/components/layout";
-import { PortfolioSummaryCard } from "@/components/cards";
+import { PortfolioSummaryCard, MarketStatusBoard } from "@/components/cards";
 import { HoldingsTable, StockDetailPanel } from "@/components/holdings";
 import type { PerformanceGrade, PerformanceStatus, Holding, Portfolio } from "@/types";
 import { useEffect, useState, useCallback } from "react";
@@ -444,6 +444,9 @@ export default function Home() {
           </div>
           <PortfolioSelector />
         </div>
+
+        {/* 시장 지수 현황판 */}
+        <MarketStatusBoard />
 
         {/* 포트폴리오 요약 */}
         <PortfolioSummaryCard {...data.portfolioSummary} />

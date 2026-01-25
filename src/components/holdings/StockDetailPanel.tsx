@@ -160,35 +160,36 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                                     <Skeleton className="h-10 w-full" />
                                     <Skeleton className="h-10 w-full" />
                                 </div>
-                            ) : investors ? (
+                            ) : (
                                 <div className="grid grid-cols-3 lg:grid-cols-1 gap-3">
                                     {[
-                                        { label: "개인", value: investors.private },
-                                        { label: "외국인", value: investors.foreign },
-                                        { label: "기관", value: investors.institutional }
+                                        { label: "외국인", value: investors?.foreign },
+                                        { label: "기관", value: investors?.institutional },
+                                        { label: "개인", value: investors?.private },
                                     ].map((item) => {
-                                        const val = item.value ?? 0;
-                                        const absVal = Math.abs(val);
-                                        const formatted = absVal >= 10000
-                                            ? `${Math.round(val / 10000).toLocaleString()}만`
-                                            : `${val.toLocaleString()}`;
-                                        const displayWithSign = val > 0 ? `+${formatted}` : formatted;
+                                        const val = item.value;
+                                        let displayValue = "-";
+                                        let textColor = "";
+
+                                        if (val !== undefined && val !== null) {
+                                            const absVal = Math.abs(val);
+                                            const formatted = absVal >= 100
+                                                ? `${(absVal / 100).toFixed(1)}억`
+                                                : `${Math.round(absVal).toLocaleString()}백만`;
+                                            displayValue = val > 0 ? `+${formatted}` : val < 0 ? `-${formatted}` : "0";
+                                            textColor = val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : "";
+                                        }
 
                                         return (
                                             <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/10 p-2.5 lg:p-0 rounded-md gap-1">
-                                                <span className="text-muted-foreground text-sm font-medium">{item.label}</span>
-                                                <span className={cn(
-                                                    "font-bold text-base sm:text-lg",
-                                                    val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : ""
-                                                )}>
-                                                    {displayWithSign}
+                                                <span className="text-muted-foreground text-sm font-medium">{item.label} (백만 원)</span>
+                                                <span className={cn("font-bold text-base sm:text-lg", textColor)}>
+                                                    {displayValue}
                                                 </span>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            ) : (
-                                <p className="text-[10px] text-muted-foreground text-center py-2">데이터 없음</p>
                             )}
                         </div>
                     </div>

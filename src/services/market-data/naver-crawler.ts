@@ -61,6 +61,13 @@ export interface NaverStockOverview {
     yearLowPrice: number;
 }
 
+export interface NaverInvestorTrends {
+    date: string;
+    private: number;
+    foreign: number;
+    institutional: number;
+}
+
 export interface NaverConsensus {
     stockCode: string;
     averageTargetPrice: number;
@@ -167,25 +174,35 @@ export class NaverCrawler {
     /**
      * 모바일 API JSON 요청
      */
-    private async fetchJson<T>(url: string): Promise<T | null> {
+    private async fetchJson<T>(url: string, silent: boolean = false): Promise<T | null> {
         try {
             await delay(CRAWL_DELAY);
 
             const response = await fetch(url, {
                 headers: {
                     "User-Agent":
-                        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-                    "Accept": "application/json",
+                        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "Referer": url.includes("/etf/")
+                        ? "https://m.stock.naver.com/etf/"
+                        : "https://m.stock.naver.com/stock/",
+                    "Origin": "https://m.stock.naver.com",
                 },
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                if (!silent || response.status !== 404) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return null;
             }
 
             return await response.json();
         } catch (error) {
-            console.error(`[NaverCrawler] JSON fetch error: ${url}`, error);
+            if (!silent) {
+                console.error(`[NaverCrawler] JSON fetch error: ${url}`, error);
+            }
             return null;
         }
     }
@@ -215,7 +232,13 @@ export class NaverCrawler {
         }
 
         const apiUrl = `${this.mobileBaseUrl}/api/stock/${stockCode}/basic`;
-        const data = await this.fetchJson<NaverMobileStockData>(apiUrl);
+        let data = await this.fetchJson<NaverMobileStockData>(apiUrl, true);
+
+        // ETF인 경우 엔드포인트가 다를 수 있음
+        if (!data) {
+            const etfApiUrl = `${this.mobileBaseUrl}/api/etf/${stockCode}/basic`;
+            data = await this.fetchJson<NaverMobileStockData>(etfApiUrl);
+        }
 
         if (!data) {
             return this.getMockStockOverview(stockCode);
@@ -404,6 +427,94 @@ export class NaverCrawler {
         }
 
         return news.length > 0 ? news : this.getMockNews(stockCode);
+    }
+
+    /**
+     * 투자자 동향 조회 (모바일 API 사용)
+     */
+    async getInvestorTrends(stockCode: string): Promise<NaverInvestorTrends> {
+        console.log(`[NaverCrawler] Fetching investor trends for ${stockCode}`);
+
+        interface NaverMobileInvestorItem {
+            bizdate: string;
+            individualNetPurchaseAmount: string;
+            foreignerNetPurchaseAmount: string;
+            institutionNetPurchaseAmount: string;
+        }
+
+        const apiUrl = `${this.mobileBaseUrl}/api/stock/${stockCode}/investor`;
+        let data = await this.fetchJson<NaverMobileInvestorItem[]>(apiUrl, true);
+
+        // ETF인 경우 엔드포인트가 다름
+        if (!data) {
+            const etfApiUrl = `${this.mobileBaseUrl}/api/etf/${stockCode}/investor`;
+            data = await this.fetchJson<NaverMobileInvestorItem[]>(etfApiUrl);
+        }
+
+        if (data && data.length > 0) {
+            // 최신 데이터 (첫 번째 아이템)
+            const latest = data[0];
+
+            return {
+                date: latest.bizdate || "",
+                private: parseNumber(latest.individualNetPurchaseAmount),
+                foreign: parseNumber(latest.foreignerNetPurchaseAmount),
+                institutional: parseNumber(latest.institutionNetPurchaseAmount),
+            };
+        }
+
+        // 3. 데스트랍 웹 크롤링 (최종 Fallback) - KRX 공시 기준
+        console.log(`[NaverCrawler] Falling back to Desktop Web scraping for ${stockCode}`);
+        const desktopUrl = `${this.baseUrl}/item/frgn.naver?code=${stockCode}`;
+        const html = await this.fetchHtml(desktopUrl);
+
+        if (!html) {
+            return {
+                date: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
+                private: 0,
+                foreign: 0,
+                institutional: 0,
+            };
+        }
+
+        try {
+            // "종목별 투자자" 테이블 파싱
+            // 데스크탑 페이지는 수량 기준이지만, 순서가 [날짜, 종가, 전일비, 등락률, 거래량, 기관, 외국인, 개인...]
+            // 데이터 행은 <tr ...> 안에 <td class="tc"> <span class="tah p10 grey03">2026.01.23</span> </td> ...
+            const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g);
+            if (rows) {
+                for (const row of rows) {
+                    if (row.includes("mouseOver")) {
+                        const cols = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+                        if (cols && cols.length >= 7) {
+                            const dateRaw = stripHtml(cols[0]).trim();
+                            if (/\d{2}\.\d{2}\.\d{2}/.test(dateRaw)) {
+                                const date = dateRaw.length === 8 ? `20${dateRaw}` : dateRaw;
+                                const vals = cols.map(c => stripHtml(c).replace(/[^-0-9.]/g, ""));
+                                console.log(`[NaverCrawler] Successfully scraped desktop investor trends for ${stockCode} on ${date}`);
+                                return {
+                                    date: date.replace(/\./g, ""),
+                                    institutional: parseInt(vals[5] || "0", 10),
+                                    foreign: parseInt(vals[6] || "0", 10),
+                                    private: parseInt(vals[7] || "0", 10),
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            console.log(`[NaverCrawler] Desktop scraping found no valid data row for ${stockCode}`);
+        } catch (e) {
+            console.error(`[NaverCrawler] Desktop parsing error for ${stockCode}:`, e);
+        }
+
+        console.log(`[NaverCrawler] All investor trend fetching methods failed for ${stockCode}, returning default.`);
+        return {
+            date: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
+            private: 0,
+            foreign: 0,
+            institutional: 0,
+        };
     }
 
     // =============================================================================

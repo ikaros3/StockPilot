@@ -343,55 +343,10 @@ export async function GET(request: NextRequest) {
             result.overview = overview;
         }
 
-        // 투자자 동향 (KIS)
+        // 투자자 동향 (나중에 해결하기 위해 임시로 비활성화)
         if (dataType === "investor") {
-            const resultData = await ServerKisService.callApi(
-                "/uapi/domestic-stock/v1/quotations/inquire-investor",
-                "FHKST01010900", // 일별 투자자 동향으로 변경
-                {
-                    FID_COND_MRKT_DIV_CODE: "J",
-                    FID_INPUT_ISCD: stockCode,
-                }
-            );
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const anyData = resultData as any;
-            console.log(`[API] Investor Data for ${stockCode} (Raw Output Length):`, anyData?.output?.length || 0);
-
-            if (anyData?.output && anyData.output.length > 0) {
-                // 주말/공휴일에는 당일 데이터가 0일 수 있으므로, 데이터가 있는 가장 최근 일자를 찾음
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                let latest = anyData.output[0];
-                let found = false;
-
-                for (let i = 0; i < anyData.output.length; i++) {
-                    const d = anyData.output[i];
-                    // KIS API 필드명 확인: prsn_ntby_qty (개인 순매수량)
-                    const p = parseInt(d.prsn_ntby_qty || "0", 10);
-                    const f = parseInt(d.frgn_ntby_qty || "0", 10);
-                    const o = parseInt(d.orgn_ntby_qty || "0", 10);
-
-                    if (p !== 0 || f !== 0 || o !== 0) {
-                        latest = d;
-                        found = true;
-                        console.log(`[API] Found non-zero investor data at index ${i}: Date=${latest.stck_bsop_date}, Pri=${p}, For=${f}, Inst=${o}`);
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    console.warn(`[API] No non-zero investor data found in the entire output for ${stockCode}`);
-                }
-
-                result.investors = {
-                    date: latest.stck_bsop_date,
-                    private: parseInt(latest.prsn_ntby_qty || "0", 10),
-                    foreign: parseInt(latest.frgn_ntby_qty || "0", 10),
-                    institutional: parseInt(latest.orgn_ntby_qty || "0", 10),
-                };
-            } else {
-                console.warn(`[API] Investor Data empty or malformed for ${stockCode}:`, JSON.stringify(anyData));
-            }
+            // const investors = await naverCrawler.getInvestorTrends(stockCode);
+            result.investors = null;
         }
 
         return NextResponse.json(result);
