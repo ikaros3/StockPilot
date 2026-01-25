@@ -4,7 +4,7 @@
   "private": true,
   "description": "개인 투자자용 포트폴리오 분석 및 리포팅 플랫폼",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

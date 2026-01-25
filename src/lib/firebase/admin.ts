@@ -1,21 +1,23 @@
 import * as admin from 'firebase-admin';
 
 /**
- * Firebase Admin SDK 초기화 (Canonical Root Pattern)
+ * Firebase Admin SDK 초기화 (Canonical Singleton)
  * 
- * Next.js 16/15 Turbopack 환경에서의 모듈 해석 오류를 방지하기 위해 
- * 서브경로(/app, /firestore)가 아닌 루트 패키지 import 방식을 사용합니다.
+ * Next.js 16/15 및 Firebase Hosting 'webframeworks' 아키텍처 연동:
+ * - Webpack 빌드 파이프라인에서 가장 안정적인 루트 패키지 import 방식을 사용합니다.
+ * - 지연 초기화(Lazy Initialization)를 통해 서버 사이드 런타임에서만 활성화됩니다.
  */
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 
+let cachedDb: admin.firestore.Firestore | null = null;
+
 function initAdmin(): admin.app.App {
-    // 1. 이미 초기화된 경우 재사용
-    if (admin.apps.length > 0) return admin.app();
+    const apps = admin.apps;
+    if (apps.length > 0) return apps[0]!;
 
     try {
-        // 2. 서비스 계정 키가 명시적으로 제공된 경우
         if (FIREBASE_SERVICE_ACCOUNT) {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
             return admin.initializeApp({
@@ -24,34 +26,35 @@ function initAdmin(): admin.app.App {
             });
         }
 
-        // 3. 배포 환경(GCP/Firebase) - 프로젝트 ID만으로 ADC 기반 자동 초기화
         if (PROJECT_ID) {
             return admin.initializeApp({
                 projectId: PROJECT_ID
             });
         }
 
-        // 4. 로컬 에뮬레이터 또는 기타 환경
         return admin.initializeApp();
     } catch (error: any) {
         if (error.code === 'app/duplicate-app') {
             return admin.app();
         }
-        console.error('[Firebase Admin] Initialization ERROR:', error);
+        console.error('[Firebase Admin] Initialization FAILED:', error);
         throw error;
     }
 }
 
 /**
- * Firestore DB 인스턴스를 반환합니다.
+ * Firestore DB 인스턴스 획득
  */
 export function getAdminDb(): admin.firestore.Firestore {
     if (typeof window !== 'undefined') {
         throw new Error('[Firebase Admin] Cannot be used in client environments.');
     }
+
+    if (cachedDb) return cachedDb;
+
     const app = initAdmin();
-    // 루트 admin 객체를 통해 firestore 인스턴스 획득 (경로 해석 오류 방지)
-    return admin.firestore(app);
+    cachedDb = admin.firestore(app);
+    return cachedDb;
 }
 
 // 하위 호환성을 위해 유지
