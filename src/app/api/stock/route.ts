@@ -343,10 +343,23 @@ export async function GET(request: NextRequest) {
             result.overview = overview;
         }
 
-        // 투자자 동향 (나중에 해결하기 위해 임시로 비활성화)
+        // 투자자 동향 (KIS API 우선, 네이버 fallback)
         if (dataType === "investor") {
-            // const investors = await naverCrawler.getInvestorTrends(stockCode);
-            result.investors = null;
+            // 1차 시도: KIS API
+            const kisInvestors = await ServerKisService.getStockInvestorTrends(stockCode);
+
+            if (kisInvestors.foreign !== 0 || kisInvestors.institution !== 0 || kisInvestors.individual !== 0) {
+                result.investors = {
+                    date: kisInvestors.date,
+                    foreign: kisInvestors.foreign,
+                    institutional: kisInvestors.institution,
+                    private: kisInvestors.individual,
+                };
+            } else {
+                // 2차 시도: 네이버 크롤러
+                const naverInvestors = await naverCrawler.getInvestorTrends(stockCode);
+                result.investors = naverInvestors;
+            }
         }
 
         return NextResponse.json(result);

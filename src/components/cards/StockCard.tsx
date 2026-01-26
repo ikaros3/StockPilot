@@ -95,7 +95,7 @@ export function StockCard({
                     </div>
                     <div>
                         <p className="text-muted-foreground">평가금액</p>
-                        <p className="font-medium">{formatKRW(evaluationAmount)}</p>
+                        <p className={cn("font-medium", trendColor)}>{formatKRW(evaluationAmount)}</p>
                     </div>
                     <div>
                         <p className="text-muted-foreground">수익</p>

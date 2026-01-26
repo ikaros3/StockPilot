@@ -79,7 +79,10 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
                                         <Skeleton className="h-6 w-24" />
                                     ) : (
                                         <>
-                                            <span className={cn("text-2xl font-bold tracking-tight", isDataMissing && "text-muted-foreground")}>
+                                            <span className={cn(
+                                                "text-2xl font-bold tracking-tight",
+                                                isDataMissing ? "text-muted-foreground" : (isProfit ? "text-red-500" : "text-blue-500")
+                                            )}>
                                                 {currentPrice ? formatNumber(currentPrice) : "N/A"}
                                             </span>
                                             {!isDataMissing && (
@@ -173,16 +176,26 @@ export function StockDetailPanel({ stockCode, stockName, purchasePrice, onClose 
 
                                         if (val !== undefined && val !== null) {
                                             const absVal = Math.abs(val);
-                                            const formatted = absVal >= 100
-                                                ? `${(absVal / 100).toFixed(1)}억`
-                                                : `${Math.round(absVal).toLocaleString()}백만`;
-                                            displayValue = val > 0 ? `+${formatted}` : val < 0 ? `-${formatted}` : "0";
+                                            const sign = val > 0 ? "+" : val < 0 ? "-" : "";
+
+                                            // 단위 변환: val은 백만 원 단위임
+                                            if (absVal >= 1000000) { // 1조 = 1,000,000 백만
+                                                const jo = Math.floor(absVal / 1000000);
+                                                const eok = Math.round((absVal % 1000000) / 100);
+                                                displayValue = `${sign}${jo}조${eok > 0 ? eok.toLocaleString() + "억" : ""}`;
+                                            } else if (absVal >= 100) { // 1억 = 100 백만
+                                                const eok = absVal / 100;
+                                                displayValue = `${sign}${eok.toLocaleString(undefined, { maximumFractionDigits: 1 })}억`;
+                                            } else {
+                                                displayValue = `${sign}${Math.round(absVal).toLocaleString()}백만`;
+                                            }
+
                                             textColor = val > 0 ? "text-red-500" : val < 0 ? "text-blue-500" : "";
                                         }
 
                                         return (
                                             <div key={item.label} className="flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-muted/10 p-2.5 lg:p-0 rounded-md gap-1">
-                                                <span className="text-muted-foreground text-sm font-medium">{item.label} (백만 원)</span>
+                                                <span className="text-muted-foreground text-sm font-medium">{item.label}</span>
                                                 <span className={cn("font-bold text-base sm:text-lg", textColor)}>
                                                     {displayValue}
                                                 </span>

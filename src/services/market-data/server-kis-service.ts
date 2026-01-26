@@ -359,49 +359,81 @@ export class ServerKisService {
 
     /**
      * 국내 지수 조회 (KOSPI, KOSDAQ)
-     * API: /uapi/domestic-stock/v1/quotations/inquire-index-price
-     * tr_id: FHPUP02100000
+     * - KOSPI: KIS API 사용
+     * - KOSDAQ: Yahoo Finance 사용 (VTS 환경에서 데이터 제공 안 될 수 있음)
      */
     private static async fetchDomesticIndices(): Promise<any[]> {
-        const indexCodes = [
-            { code: '0001', name: 'KOSPI' },
-            { code: '1001', name: 'KOSDAQ' }
-        ];
-
         const results: any[] = [];
 
-        for (const { code, name } of indexCodes) {
-            try {
-                const data = await this.callApi(
-                    '/uapi/domestic-stock/v1/quotations/inquire-index-price',
-                    'FHPUP02100000',
-                    {
-                        FID_COND_MRKT_DIV_CODE: 'U',
-                        FID_INPUT_ISCD: code
-                    }
-                );
-
-                if (data?.output) {
-                    const o = data.output;
-                    const price = parseFloat(o.bstp_nmix_prpr || o.ovrs_nmix_prpr || '0');
-                    const change = parseFloat(o.bstp_nmix_prdy_vrss || o.ovrs_nmix_prdy_vrss || '0');
-                    const changeRate = parseFloat(o.bstp_nmix_prdy_ctrt || o.prdy_ctrt || '0');
-
-                    results.push({
-                        name,
-                        price,
-                        change,
-                        changeRate,
-                        isUp: change > 0,
-                        isDown: change < 0
-                    });
-                } else {
-                    results.push({ name, price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'No data' });
+        // KOSPI - KIS API
+        try {
+            const data = await this.callApi(
+                '/uapi/domestic-stock/v1/quotations/inquire-index-price',
+                'FHPUP02100000',
+                {
+                    FID_COND_MRKT_DIV_CODE: 'U',
+                    FID_INPUT_ISCD: '0001'
                 }
-            } catch (e) {
-                console.error(`[KIS Index] ${name} 조회 실패:`, e);
-                results.push({ name, price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'API Error' });
+            );
+
+            if (data?.output) {
+                const o = data.output;
+                const price = parseFloat(o.bstp_nmix_prpr || o.ovrs_nmix_prpr || '0');
+                const change = parseFloat(o.bstp_nmix_prdy_vrss || o.ovrs_nmix_prdy_vrss || '0');
+                const changeRate = parseFloat(o.bstp_nmix_prdy_ctrt || o.prdy_ctrt || '0');
+
+                results.push({
+                    name: 'KOSPI',
+                    price,
+                    change,
+                    changeRate,
+                    isUp: change > 0,
+                    isDown: change < 0
+                });
+            } else {
+                results.push({ name: 'KOSPI', price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'No data' });
             }
+        } catch (e) {
+            console.error(`[KIS Index] KOSPI 조회 실패:`, e);
+            results.push({ name: 'KOSPI', price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'API Error' });
+        }
+
+        // KOSDAQ - Yahoo Finance
+        try {
+            const response = await fetch(
+                `https://query1.finance.yahoo.com/v8/finance/chart/%5EKQ11?interval=1d&range=2d`,
+                {
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    cache: 'no-store'
+                }
+            );
+
+            if (!response.ok) throw new Error(`Yahoo API error: ${response.status}`);
+
+            const data = await response.json();
+            const result = data.chart?.result?.[0];
+
+            if (result) {
+                const meta = result.meta;
+                const price = meta.regularMarketPrice || 0;
+                const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+                const change = price - prevClose;
+                const changeRate = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+                results.push({
+                    name: 'KOSDAQ',
+                    price: parseFloat(price.toFixed(2)),
+                    change: parseFloat(change.toFixed(2)),
+                    changeRate: parseFloat(changeRate.toFixed(2)),
+                    isUp: change > 0,
+                    isDown: change < 0
+                });
+            } else {
+                throw new Error('No data in response');
+            }
+        } catch (e) {
+            console.error(`[Yahoo Finance] KOSDAQ 조회 실패:`, e);
+            results.push({ name: 'KOSDAQ', price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'API Error' });
         }
 
         return results;
@@ -467,6 +499,177 @@ export class ServerKisService {
         }
 
         return results;
+    }
+
+    /**
+     * 투자자 동향 조회 (외국인, 기관, 개인)
+     * 
+     * - API: /uapi/domestic-stock/v1/quotations/inquire-investor
+     * - tr_id: FHPTJ04400000 (시장별 투자자매매동향)
+     * - 캐싱: 장중 1분, 장마감 12시간
+     */
+    static async getInvestorTrends(): Promise<{
+        foreign: { amount: number; isPositive: boolean };
+        institution: { amount: number; isPositive: boolean };
+        individual: { amount: number; isPositive: boolean };
+        updatedAt: string;
+    }> {
+        const CACHE_DOC_ID = 'investor_trends';
+        const CACHE_TTL_MARKET_OPEN = 60 * 1000;        // 장중: 1분
+        const CACHE_TTL_MARKET_CLOSED = 12 * 60 * 60 * 1000; // 장마감: 12시간
+
+        // 1. 장 운영 상태 확인
+        const { koMarketOpen } = this.checkMarketStatus();
+        const cacheTTL = koMarketOpen ? CACHE_TTL_MARKET_OPEN : CACHE_TTL_MARKET_CLOSED;
+
+        // 2. Firestore 캐시 확인
+        try {
+            const cached = await getDocument('system_metadata', CACHE_DOC_ID);
+            if (cached?.foreign && cached?.updatedAt) {
+                const updatedAt = new Date(cached.updatedAt).getTime();
+                const now = Date.now();
+                if (now - updatedAt < cacheTTL) {
+                    console.log(`[KIS Investor] 캐시 사용 (${Math.round((now - updatedAt) / 1000)}초 전)`);
+                    return {
+                        foreign: cached.foreign,
+                        institution: cached.institution,
+                        individual: cached.individual,
+                        updatedAt: cached.updatedAt
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[KIS Investor] 캐시 조회 실패:', e);
+        }
+
+        // 3. API에서 새 데이터 가져오기
+        console.log('[KIS Investor] API에서 새 데이터 조회');
+
+        try {
+            // KOSPI 전체 투자자 동향 조회
+            const data = await this.callApi(
+                '/uapi/domestic-stock/v1/quotations/inquire-investor',
+                'FHPTJ04400000',
+                {
+                    FID_COND_MRKT_DIV_CODE: 'J',
+                    FID_INPUT_ISCD: '0001'  // KOSPI 전체
+                }
+            );
+
+            if (data?.output && data.output.length > 0) {
+                const o = data.output[0];
+
+                // 순매수 거래대금 (단위: 원 -> 억원 변환은 프론트에서)
+                const foreignAmount = parseInt(o.frgn_ntby_tr_pbmn || '0');
+                const institutionAmount = parseInt(o.orgn_ntby_tr_pbmn || '0');
+                const individualAmount = parseInt(o.prsn_ntby_tr_pbmn || '0');
+
+                const result = {
+                    foreign: {
+                        amount: foreignAmount,
+                        isPositive: foreignAmount >= 0
+                    },
+                    institution: {
+                        amount: institutionAmount,
+                        isPositive: institutionAmount >= 0
+                    },
+                    individual: {
+                        amount: individualAmount,
+                        isPositive: individualAmount >= 0
+                    },
+                    updatedAt: new Date().toISOString()
+                };
+
+                // 4. 캐시 저장
+                try {
+                    await setDocument('system_metadata', CACHE_DOC_ID, {
+                        ...result,
+                        koMarketOpen
+                    });
+                    console.log('[KIS Investor] 캐시 저장 완료');
+                } catch (e) {
+                    console.warn('[KIS Investor] 캐시 저장 실패:', e);
+                }
+
+                return result;
+            }
+        } catch (e) {
+            console.error('[KIS Investor] API 조회 실패:', e);
+        }
+
+        // 실패 시 기본값 반환
+        return {
+            foreign: { amount: 0, isPositive: true },
+            institution: { amount: 0, isPositive: true },
+            individual: { amount: 0, isPositive: true },
+            updatedAt: new Date().toISOString()
+        };
+    }
+
+    /**
+     * 종목별 투자자 동향 조회 (외국인, 기관, 개인)
+     * 
+     * - API: /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice 또는
+     *        /uapi/domestic-stock/v1/quotations/inquire-member (회원사별)
+     * - 대안: 네이버 크롤러 사용 (모바일 API)
+     * 
+     * @param stockCode 종목코드 (6자리)
+     */
+    static async getStockInvestorTrends(stockCode: string): Promise<{
+        date: string;
+        foreign: number;
+        institution: number;
+        individual: number;
+    }> {
+        console.log(`[KIS] Fetching investor trends for stock: ${stockCode}`);
+
+        try {
+            // KIS API: 종목별 투자자매매동향(일별)
+            // tr_id: FHKST01010900 (종목별 투자자별 매매동향 일별)
+            const today = this.getDateString(0);
+            const weekAgo = this.getDateString(-7);
+
+            const data = await this.callApi(
+                '/uapi/domestic-stock/v1/quotations/inquire-investor',
+                'FHKST01010900',
+                {
+                    FID_COND_MRKT_DIV_CODE: 'J',
+                    FID_INPUT_ISCD: stockCode,
+                    FID_INPUT_DATE_1: weekAgo,
+                    FID_INPUT_DATE_2: today,
+                }
+            );
+
+            if (data?.output && data.output.length > 0) {
+                // 최신 데이터 (첫 번째 아이템)
+                const o = data.output[0];
+
+                // 순매수 금액 (단위: 원)
+                // 필드명: frgn_ntby_tr_pbmn (외국인 순매수 거래대금), orgn_ntby_tr_pbmn (기관), prsn_ntby_tr_pbmn (개인)
+                const foreignAmount = parseInt(o.frgn_ntby_tr_pbmn || o.frgn_ntby_qty || '0');
+                const institutionAmount = parseInt(o.orgn_ntby_tr_pbmn || o.orgn_ntby_qty || '0');
+                const individualAmount = parseInt(o.prsn_ntby_tr_pbmn || o.prsn_ntby_qty || '0');
+
+                console.log(`[KIS] Stock ${stockCode} investor trends: foreign=${foreignAmount}, inst=${institutionAmount}, indiv=${individualAmount}`);
+
+                return {
+                    date: o.stck_bsop_date || today,
+                    foreign: foreignAmount,
+                    institution: institutionAmount,
+                    individual: individualAmount,
+                };
+            }
+        } catch (e) {
+            console.error(`[KIS] Stock investor trends API error:`, e);
+        }
+
+        // 기본값 반환 (API 실패 시)
+        return {
+            date: this.getDateString(0),
+            foreign: 0,
+            institution: 0,
+            individual: 0,
+        };
     }
 
     /**

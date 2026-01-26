@@ -75,7 +75,7 @@ export function PortfolioSummaryCard({
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground">현재 평가액</p>
-                        <p className="text-xl font-bold">{formatKRW(currentValue)}</p>
+                        <p className={cn("text-xl font-bold", trendColor)}>{formatKRW(currentValue)}</p>
                     </div>
                 </div>
 

@@ -479,8 +479,8 @@ export class NaverCrawler {
 
         try {
             // "종목별 투자자" 테이블 파싱
-            // 데스크탑 페이지는 수량 기준이지만, 순서가 [날짜, 종가, 전일비, 등락률, 거래량, 기관, 외국인, 개인...]
-            // 데이터 행은 <tr ...> 안에 <td class="tc"> <span class="tah p10 grey03">2026.01.23</span> </td> ...
+            // 데스크탑 페이지 컬럼: [날짜, 종가, 전일비, 등락률, 거래량, 기관순매매량, 외국인순매매량, 외국인보유주수, 외국인보유율]
+            // 주의: 개인 순매매량은 이 테이블에 없음! vals[7]은 외국인 보유주수임
             const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g);
             if (rows) {
                 for (const row of rows) {
@@ -491,12 +491,12 @@ export class NaverCrawler {
                             if (/\d{2}\.\d{2}\.\d{2}/.test(dateRaw)) {
                                 const date = dateRaw.length === 8 ? `20${dateRaw}` : dateRaw;
                                 const vals = cols.map(c => stripHtml(c).replace(/[^-0-9.]/g, ""));
-                                console.log(`[NaverCrawler] Successfully scraped desktop investor trends for ${stockCode} on ${date}`);
+                                console.log(`[NaverCrawler] Desktop fallback for ${stockCode} on ${date} - 개인 데이터 없음 (0으로 설정)`);
                                 return {
                                     date: date.replace(/\./g, ""),
                                     institutional: parseInt(vals[5] || "0", 10),
                                     foreign: parseInt(vals[6] || "0", 10),
-                                    private: parseInt(vals[7] || "0", 10),
+                                    private: 0,  // 데스크탑 테이블에 개인 순매매량 없음
                                 };
                             }
                         }
