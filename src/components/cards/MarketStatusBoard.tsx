@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -72,35 +72,45 @@ export function MarketStatusBoard() {
                     {data?.indices.map((index) => (
                         <div
                             key={index.name}
-                            className="flex-1 min-w-[100px] sm:min-w-0 px-1.5 py-0.5 sm:px-2.5 sm:py-1 flex flex-col items-center justify-center text-center transition-all hover:bg-accent/20"
+                            className="flex-1 min-w-[120px] sm:min-w-0 px-3 py-2 sm:px-4 sm:py-3 flex flex-col items-center justify-center text-center transition-all hover:bg-accent/20"
                         >
-                            <span className="font-black uppercase tracking-tight mb-0.5 whitespace-nowrap text-xs sm:text-base text-foreground">
+                            {/* 지수명 */}
+                            <div className="font-black uppercase tracking-tight mb-1 whitespace-nowrap text-sm sm:text-lg text-foreground">
                                 {index.name}
-                            </span>
-
-                            <div className="text-sm sm:text-xl font-black tracking-tighter mb-0.5 text-foreground whitespace-nowrap">
-                                {index.price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                             </div>
 
+                            {/* 지수값 - 큰 컬러 숫자 */}
                             <div className={cn(
-                                "flex items-center gap-0.5 text-[10px] sm:text-sm font-bold whitespace-nowrap",
+                                "text-xl sm:text-3xl font-black tracking-tighter mb-1 whitespace-nowrap",
+                                index.isUp ? "text-red-500" : index.isDown ? "text-blue-500" : "text-foreground"
+                            )}>
+                                {index.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+
+                            {/* 변동값과 변동률 */}
+                            <div className={cn(
+                                "flex items-center gap-1 text-xs sm:text-sm font-bold whitespace-nowrap",
                                 index.isUp ? "text-red-500" : index.isDown ? "text-blue-500" : "text-muted-foreground"
                             )}>
-                                {index.isUp && <TrendingUp className="h-2.5 w-2.5 sm:h-4 sm:w-4" />}
-                                {index.isDown && <TrendingDown className="h-2.5 w-2.5 sm:h-4 sm:w-4" />}
-                                {!index.isUp && !index.isDown && <Minus className="h-2.5 w-2.5 sm:h-4 sm:w-4" />}
+                                {index.isUp && (
+                                    <span className="inline-block w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[8px] border-b-red-500" />
+                                )}
+                                {index.isDown && (
+                                    <span className="inline-block w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[8px] border-t-blue-500" />
+                                )}
 
-                                <span className="text-[9px] sm:text-xs font-black">
-                                    {index.changeRate > 0 ? "+" : ""}{index.changeRate}%
+                                <span>
+                                    {index.change > 0 ? "+" : ""}{index.change.toFixed(2)}
+                                    ({index.changeRate > 0 ? "+" : ""}{index.changeRate.toFixed(2)}%)
                                 </span>
                             </div>
                         </div>
                     ))}
                 </CardContent>
             </Card>
-            <div className="flex items-center justify-end gap-1 text-[9px] text-muted-foreground/30 pr-1">
-                <Info className="h-2 w-2" />
-                <span>지수 실시간 현황</span>
+            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground/50 py-0.5">
+                <Info className="h-2.5 w-2.5" />
+                <span>10분 지연</span>
             </div>
         </div>
     );

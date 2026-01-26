@@ -247,11 +247,240 @@ export class ServerKisService {
         return kisRequestQueue.getPrices(symbols);
     }
 
+    /**
+     * 시장 지수 조회 (KOSPI, KOSDAQ, NASDAQ, DOW)
+     * 
+     * - Firestore 캐싱을 통해 반복 API 호출 방지
+     * - 장중: 1분 캐시, 장마감: 12시간 캐시
+     * - 장마감/주말에는 마지막 거래일 데이터 표시
+     */
     static async getIndices(): Promise<{ indices: any[], isMarketOpen: boolean }> {
-        const indices = ["KOSPI", "KOSDAQ", "NASDAQ", "DOW"];
-        return {
-            indices: indices.map(id => ({ name: id, error: "No data" })),
-            isMarketOpen: false
-        };
+        const CACHE_DOC_ID = 'market_indices';
+        const CACHE_TTL_MARKET_OPEN = 60 * 1000;        // 장중: 1분
+        const CACHE_TTL_MARKET_CLOSED = 12 * 60 * 60 * 1000; // 장마감: 12시간
+
+        // 1. 장 운영 상태 확인
+        const { koMarketOpen, usMarketOpen } = this.checkMarketStatus();
+        const isAnyMarketOpen = koMarketOpen || usMarketOpen;
+        const cacheTTL = isAnyMarketOpen ? CACHE_TTL_MARKET_OPEN : CACHE_TTL_MARKET_CLOSED;
+
+        // 2. Firestore 캐시 확인
+        try {
+            const cached = await getDocument('system_metadata', CACHE_DOC_ID);
+            if (cached?.indices && cached?.updatedAt) {
+                const updatedAt = new Date(cached.updatedAt).getTime();
+                const now = Date.now();
+                if (now - updatedAt < cacheTTL) {
+                    console.log(`[KIS Index] 캐시 사용 (${Math.round((now - updatedAt) / 1000)}초 전)`);
+                    return {
+                        indices: cached.indices,
+                        isMarketOpen: isAnyMarketOpen
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[KIS Index] 캐시 조회 실패:', e);
+        }
+
+        // 3. API에서 새 데이터 가져오기
+        console.log('[KIS Index] API에서 새 데이터 조회');
+        const indices: any[] = [];
+
+        // 국내 지수 (KOSPI, KOSDAQ)
+        const domesticIndices = await this.fetchDomesticIndices();
+        indices.push(...domesticIndices);
+
+        // 해외 지수 (NASDAQ, DOW)
+        const overseasIndices = await this.fetchOverseasIndices();
+        indices.push(...overseasIndices);
+
+        // 4. 캐시 저장
+        try {
+            await setDocument('system_metadata', CACHE_DOC_ID, {
+                indices,
+                updatedAt: new Date(),
+                koMarketOpen,
+                usMarketOpen
+            });
+            console.log('[KIS Index] 캐시 저장 완료');
+        } catch (e) {
+            console.warn('[KIS Index] 캐시 저장 실패:', e);
+        }
+
+        return { indices, isMarketOpen: isAnyMarketOpen };
+    }
+
+    /**
+     * 장 운영 상태 확인
+     * - 한국장: 평일 09:00-15:30 KST
+     * - 미국장: 평일 09:30-16:00 EST (한국시간 23:30-06:00 다음날)
+     */
+    private static checkMarketStatus(): { koMarketOpen: boolean; usMarketOpen: boolean } {
+        const now = new Date();
+
+        // 한국 시간 기준
+        const koFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Seoul',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
+            weekday: 'short'
+        });
+        const koParts = koFormatter.formatToParts(now);
+        const koWeekday = koParts.find(p => p.type === 'weekday')?.value || '';
+        const koHour = parseInt(koParts.find(p => p.type === 'hour')?.value || '0');
+        const koMinute = parseInt(koParts.find(p => p.type === 'minute')?.value || '0');
+        const koTime = koHour * 60 + koMinute;
+
+        // 한국장: 평일 09:00-15:30 (540-930분)
+        const koWeekend = ['Sat', 'Sun'].includes(koWeekday);
+        const koMarketOpen = !koWeekend && koTime >= 540 && koTime <= 930;
+
+        // 미국 시간 기준 (EST)
+        const usFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
+            weekday: 'short'
+        });
+        const usParts = usFormatter.formatToParts(now);
+        const usWeekday = usParts.find(p => p.type === 'weekday')?.value || '';
+        const usHour = parseInt(usParts.find(p => p.type === 'hour')?.value || '0');
+        const usMinute = parseInt(usParts.find(p => p.type === 'minute')?.value || '0');
+        const usTime = usHour * 60 + usMinute;
+
+        // 미국장: 평일 09:30-16:00 (570-960분)
+        const usWeekend = ['Sat', 'Sun'].includes(usWeekday);
+        const usMarketOpen = !usWeekend && usTime >= 570 && usTime <= 960;
+
+        return { koMarketOpen, usMarketOpen };
+    }
+
+    /**
+     * 국내 지수 조회 (KOSPI, KOSDAQ)
+     * API: /uapi/domestic-stock/v1/quotations/inquire-index-price
+     * tr_id: FHPUP02100000
+     */
+    private static async fetchDomesticIndices(): Promise<any[]> {
+        const indexCodes = [
+            { code: '0001', name: 'KOSPI' },
+            { code: '1001', name: 'KOSDAQ' }
+        ];
+
+        const results: any[] = [];
+
+        for (const { code, name } of indexCodes) {
+            try {
+                const data = await this.callApi(
+                    '/uapi/domestic-stock/v1/quotations/inquire-index-price',
+                    'FHPUP02100000',
+                    {
+                        FID_COND_MRKT_DIV_CODE: 'U',
+                        FID_INPUT_ISCD: code
+                    }
+                );
+
+                if (data?.output) {
+                    const o = data.output;
+                    const price = parseFloat(o.bstp_nmix_prpr || o.ovrs_nmix_prpr || '0');
+                    const change = parseFloat(o.bstp_nmix_prdy_vrss || o.ovrs_nmix_prdy_vrss || '0');
+                    const changeRate = parseFloat(o.bstp_nmix_prdy_ctrt || o.prdy_ctrt || '0');
+
+                    results.push({
+                        name,
+                        price,
+                        change,
+                        changeRate,
+                        isUp: change > 0,
+                        isDown: change < 0
+                    });
+                } else {
+                    results.push({ name, price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'No data' });
+                }
+            } catch (e) {
+                console.error(`[KIS Index] ${name} 조회 실패:`, e);
+                results.push({ name, price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'API Error' });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 해외 지수 조회 (NASDAQ, DOW)
+     * 
+     * KIS API(VTS)에서 해외 지수가 제한되는 경우 Yahoo Finance 폴백 사용
+     */
+    private static async fetchOverseasIndices(): Promise<any[]> {
+        // Yahoo Finance API 심볼
+        const yahooSymbols = [
+            { symbol: '^IXIC', name: 'NASDAQ' },
+            { symbol: '^DJI', name: 'DOW' }
+        ];
+
+        const results: any[] = [];
+
+        for (const { symbol, name } of yahooSymbols) {
+            try {
+                // Yahoo Finance Chart API (무료, 인증 불필요)
+                const response = await fetch(
+                    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=2d`,
+                    {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0'
+                        },
+                        cache: 'no-store'
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Yahoo API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const result = data.chart?.result?.[0];
+
+                if (result) {
+                    const meta = result.meta;
+                    const price = meta.regularMarketPrice || 0;
+                    const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+                    const change = price - prevClose;
+                    const changeRate = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+                    results.push({
+                        name,
+                        price: parseFloat(price.toFixed(2)),
+                        change: parseFloat(change.toFixed(2)),
+                        changeRate: parseFloat(changeRate.toFixed(2)),
+                        isUp: change > 0,
+                        isDown: change < 0
+                    });
+                    console.log(`[Yahoo Finance] ${name}: ${price.toFixed(2)} (${changeRate > 0 ? '+' : ''}${changeRate.toFixed(2)}%)`);
+                } else {
+                    throw new Error('No data in response');
+                }
+            } catch (e) {
+                console.error(`[Yahoo Finance] ${name} 조회 실패:`, e);
+                results.push({ name, price: 0, change: 0, changeRate: 0, isUp: false, isDown: false, error: 'API Error' });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 날짜 문자열 생성 (YYYYMMDD 형식)
+     * @param daysOffset - 오늘 기준 일수 차이 (0=오늘, -7=7일 전)
+     */
+    private static getDateString(daysOffset: number): string {
+        const date = new Date();
+        date.setDate(date.getDate() + daysOffset);
+        return date.toISOString().slice(0, 10).replace(/-/g, '');
     }
 }
+
+
+
+
+
