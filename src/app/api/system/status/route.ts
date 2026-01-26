@@ -81,7 +81,7 @@ export async function GET() {
     let firestoreDebug = null;
     try {
         const { getAdminDb } = await import("@/lib/firebase/admin");
-        const adminDb = getAdminDb(); // 여기서 초기화 에러가 나면 catch로 잡힘
+        const adminDb = await getAdminDb(); // 여기서 초기화 에러가 나면 catch로 잡힘
         const testDoc = await adminDb.collection('system_metadata').doc('kis_token_prod').get();
         firestoreDebug = {
             status: "Connected",
