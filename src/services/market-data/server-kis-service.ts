@@ -103,9 +103,10 @@ export class ServerKisService {
             }
         }
 
-        // 4. 동시 요청 방지
+        // 4. 동시 요청 방지 - forceRefresh 여부와 관계없이 진행 중인 Promise가 있으면 대기
         const existingPromise = this.tokenRefreshPromises.get(env);
-        if (existingPromise && !forceRefresh) {
+        if (existingPromise) {
+            console.log('[KIS] 기존 토큰 발급 요청 대기 중...');
             return existingPromise;
         }
 

@@ -4,23 +4,48 @@
  * firebase-admin 대신 Firestore REST API를 직접 호출하여
  * Turbopack 번들링 문제를 우회합니다.
  * 
- * Cloud Run 환경에서는 메타데이터 서버를 통해 자동으로 인증됩니다.
- * 로컬에서는 FIREBASE_SERVICE_ACCOUNT 환경변수를 사용합니다.
+ * - Cloud Run: 메타데이터 서버를 통해 자동 인증
+ * - 로컬 에뮬레이터: 인증 없이 직접 연결
+ * - 로컬 프로덕션 DB: 서비스 계정으로 인증
  */
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+// 에뮬레이터 설정 (환경변수로 감지)
+const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST; // 예: "127.0.0.1:8080"
 
 // Access Token 캐시
 let cachedAccessToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
 /**
- * Google Cloud Access Token 획득
- * Cloud Run: 메타데이터 서버에서 자동 획득
- * 로컬: 서비스 계정으로 JWT 생성 후 교환
+ * 에뮬레이터 사용 여부 확인
  */
-async function getGoogleAccessToken(): Promise<string> {
+function isUsingEmulator(): boolean {
+    return !!FIRESTORE_EMULATOR_HOST;
+}
+
+/**
+ * Firestore Base URL 반환
+ */
+function getFirestoreBaseUrl(): string {
+    if (isUsingEmulator()) {
+        return `http://${FIRESTORE_EMULATOR_HOST}/v1`;
+    }
+    return 'https://firestore.googleapis.com/v1';
+}
+
+/**
+ * Google Cloud Access Token 획득
+ * 에뮬레이터 모드에서는 토큰 불필요
+ */
+async function getGoogleAccessToken(): Promise<string | null> {
+    // 에뮬레이터 모드에서는 인증 불필요
+    if (isUsingEmulator()) {
+        return null;
+    }
+
     const now = Date.now();
 
     // 캐시된 토큰이 유효하면 재사용
@@ -49,7 +74,7 @@ async function getGoogleAccessToken(): Promise<string> {
         // 메타데이터 서버 없음 (로컬 환경)
     }
 
-    // 2. 로컬: 서비스 계정으로 JWT 생성 (google-auth-library 없이)
+    // 2. 로컬: 서비스 계정으로 JWT 생성
     if (FIREBASE_SERVICE_ACCOUNT) {
         try {
             const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
@@ -129,6 +154,22 @@ interface FirestoreDocument {
 }
 
 /**
+ * 요청 헤더 생성
+ */
+async function getHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+
+    const token = await getGoogleAccessToken();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
+}
+
+/**
  * Firestore 문서 조회
  */
 export async function getDocument(collection: string, docId: string): Promise<Record<string, any> | null> {
@@ -138,14 +179,16 @@ export async function getDocument(collection: string, docId: string): Promise<Re
     }
 
     try {
-        const accessToken = await getGoogleAccessToken();
-        const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+        const baseUrl = getFirestoreBaseUrl();
+        const url = `${baseUrl}/projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+        const headers = await getHeaders();
+
+        if (isUsingEmulator()) {
+            console.log(`[FirestoreREST] 에뮬레이터 연결: ${url}`);
+        }
 
         const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
+            headers,
             cache: 'no-store'
         });
 
@@ -176,15 +219,17 @@ export async function setDocument(collection: string, docId: string, data: Recor
     }
 
     try {
-        const accessToken = await getGoogleAccessToken();
-        const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+        const baseUrl = getFirestoreBaseUrl();
+        const url = `${baseUrl}/projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+        const headers = await getHeaders();
+
+        if (isUsingEmulator()) {
+            console.log(`[FirestoreREST] 에뮬레이터에 저장: ${url}`);
+        }
 
         const response = await fetch(url, {
             method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
+            headers,
             body: JSON.stringify({
                 fields: toFirestoreFields(data)
             }),
