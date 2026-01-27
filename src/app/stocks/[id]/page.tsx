@@ -109,16 +109,24 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
                 <Tabs defaultValue="summary" className="w-full">
                     <TabsList className="w-full justify-start overflow-x-auto">
                         <TabsTrigger value="summary">요약</TabsTrigger>
+                        <TabsTrigger value="analyst">애널리스트</TabsTrigger>
+                        <TabsTrigger value="trading-strategy">매매 전략</TabsTrigger>
                         <TabsTrigger value="exit-timing">매도 타이밍</TabsTrigger>
                         <TabsTrigger value="accumulation">추가 매수</TabsTrigger>
-                        <TabsTrigger value="risk-control">익절/손절</TabsTrigger>
-                        <TabsTrigger value="trading-strategy">매매 전략</TabsTrigger>
                         <TabsTrigger value="holding-period">보유 기간</TabsTrigger>
-                        <TabsTrigger value="analyst">애널리스트</TabsTrigger>
+                        <TabsTrigger value="risk-control">익절/손절</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="summary" className="mt-6">
                         <SummaryTab stockId={id} />
+                    </TabsContent>
+
+                    <TabsContent value="analyst" className="mt-6">
+                        <AnalystTab stockId={id} />
+                    </TabsContent>
+
+                    <TabsContent value="trading-strategy" className="mt-6">
+                        <TradingStrategyTab stockId={id} />
                     </TabsContent>
 
                     <TabsContent value="exit-timing" className="mt-6">
@@ -129,20 +137,12 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
                         <AccumulationTab stockId={id} />
                     </TabsContent>
 
-                    <TabsContent value="risk-control" className="mt-6">
-                        <RiskControlTab stockId={id} />
-                    </TabsContent>
-
-                    <TabsContent value="trading-strategy" className="mt-6">
-                        <TradingStrategyTab stockId={id} />
-                    </TabsContent>
-
                     <TabsContent value="holding-period" className="mt-6">
                         <HoldingPeriodTab stockId={id} />
                     </TabsContent>
 
-                    <TabsContent value="analyst" className="mt-6">
-                        <AnalystTab stockId={id} />
+                    <TabsContent value="risk-control" className="mt-6">
+                        <RiskControlTab stockId={id} />
                     </TabsContent>
                 </Tabs>
             </div>
