@@ -1,6 +1,40 @@
 import { Timestamp } from "firebase/firestore";
 
 // ============================================
+// Agent/Skill 공통 인터페이스
+// ============================================
+
+/**
+ * Agent 기본 인터페이스
+ * 여러 Skill을 조합하여 분석을 수행하는 오케스트레이터
+ */
+export interface BaseAgent<TInput, TOutput> {
+    analyze(input: TInput): Promise<TOutput>;
+}
+
+/**
+ * Skill 기본 인터페이스
+ * 단일 책임 원칙을 따르는 분석 기능 단위
+ */
+export interface BaseSkill<TInput, TOutput> {
+    execute(input: TInput): Promise<TOutput>;
+}
+
+/**
+ * 분석 컨텍스트 (공통 입력)
+ * 모든 분석 모듈에서 공유하는 기본 정보
+ */
+export interface AnalysisContext {
+    stockCode: string;
+    stockName: string;
+    currentPrice: number;
+    purchasePrice: number;
+    quantity: number;
+    portfolioId?: string;
+    userId?: string;
+}
+
+// ============================================
 // 분석 리포트 메인 타입
 // ============================================
 
